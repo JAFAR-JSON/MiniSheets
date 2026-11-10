@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 
 namespace MiniSheets;
 
@@ -48,7 +49,7 @@ public class Lexer
 
     private char? ConsumeChar()
     {
-        var character = PeekChar();
+        char? character = PeekChar();
 
         if (character == null)
         {
@@ -62,7 +63,7 @@ public class Lexer
 
     private bool AcceptChar(char accepted_character)
     {
-        var character = PeekChar();
+        char? character = PeekChar();
 
         if (character == null || character != accepted_character)
         {
@@ -94,7 +95,7 @@ public class Lexer
 
     private string? ConsumeStr(int length)
     {
-        var str = PeekStr(length);
+        string? str = PeekStr(length);
 
         if (str == null)
         {
@@ -107,8 +108,8 @@ public class Lexer
 
     private bool AcceptStr(string accepted_str)
     {
-        var length = accepted_str.Length;
-        var str = PeekStr(length);
+        int length = accepted_str.Length;
+        string? str = PeekStr(length);
 
         if (str == null || !str.Equals(accepted_str))
         {
@@ -132,8 +133,8 @@ public class Lexer
     {
         do
         {
-            var character = ConsumeChar();
-            if (character == null || !predicate(character.Value))
+            char? character = ConsumeChar();
+            if (character == null || predicate(character.Value))
             {
                 break;
             }
@@ -145,8 +146,8 @@ public class Lexer
     {
         do
         {
-            var character = PeekChar();
-            if (character == null || !predicate(character.Value))
+            char? character = PeekChar();
+            if (character == null || predicate(character.Value))
             {
                 break;
             }
@@ -159,4 +160,90 @@ public class Lexer
     {
         tokens.Append(token);
     }
+
+    private Token.Str? TokenizeStr()
+    {
+        if (!AcceptChar('"'))
+        {
+            return null;
+        }
+
+        StringBuilder str_builder = new StringBuilder();
+        bool is_escaping = false;
+        char? character = null;
+        
+        do
+        {
+            character = PeekChar();
+            if (character == null)
+            {
+                return null;
+            }
+            str_builder.Append(ConsumeChar().Value);
+
+            if (character == '"')
+            {
+                is_escaping = !is_escaping;
+            }
+        }
+        while (character != '\"' || is_escaping);
+
+        return (Token.Str) new (str_builder.ToString());
+    }
+
+    // TODO: Make it so that Token stores number in the format requested by the specification. (IEEE-754 doubles)
+    private Token.Number? TokenizeNumber()
+    {
+        int start = current;
+
+        char? character = ConsumeChar();
+        if (character == null || NotDigit(character.Value))
+        {
+            return null;
+        }
+        ConsumeUntilExclusive(NotDigit);
+
+        character = PeekChar();
+        if (character == null)
+        {
+            return null;
+        }
+        else if (character.Value == '.')
+        {
+            ConsumeChar();
+            character = ConsumeChar();
+            if (character == null)
+            {
+                return null;
+            }
+
+            if (NotDigit(character.Value))
+            {
+                return null;
+            }
+
+            ConsumeUntilExclusive(NotDigit);
+        }
+
+        return (Token.Number) new (text.Substring(startIndex: start, length: current));
+    }
+
+    private bool IsDigit(char character)
+        => character switch
+        {
+            '0' => true,
+            '1' => true,
+            '2' => true,
+            '3' => true,
+            '4' => true,
+            '5' => true,
+            '6' => true,
+            '7' => true,
+            '8' => true,
+            '9' => true,
+            _ => false,
+        };
+
+    private bool NotDigit(char character)
+        => !IsDigit(character);
 }

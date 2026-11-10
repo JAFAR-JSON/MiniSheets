@@ -7,4 +7,5 @@ public abstract record Token
     private Token() {}
 
     public sealed record Identifer(string identifer) : Token;
+    public sealed record Str(string identifer) : Token;
 }
