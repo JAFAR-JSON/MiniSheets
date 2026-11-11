@@ -3,6 +3,7 @@ using System.Text;
 
 namespace MiniSheets;
 
+// NOT_SPECIFICATION: There was a `Parser` in the specification but no `Lexer`.
 public class Lexer
 {
     private string text = ""; // Stores the string that is being parsed.
