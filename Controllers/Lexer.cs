@@ -8,24 +8,23 @@ public class Lexer
 {
     private string text = ""; // Stores the string that is being parsed.
     private int current = 0; // Current position inside the `text`.
-    private List<Token> tokens = [];
 
-    Lexer()
-    {
-    }
+    public Lexer() {}
 
-    public Token[] Tokenize(string text)
+    public Token[] TokenizeText(string text)
     {
         this.text = text;
         this.current = 0;
-        this.tokens = [];
 
-        return [];
-    }
-
-    private void ResetLexer()
-    {
-        current = 0;
+        List<Token>? tokens = TokenizeTokens();
+        if (tokens == null)
+        {
+            return null;
+        }
+        else
+        {
+            return tokens.ToArray();
+        }
     }
 
     private bool IsAtEnd()
@@ -157,11 +156,6 @@ public class Lexer
         while (true);
     }
 
-    private void AddToken(Token token)
-    {
-        tokens.Append(token);
-    }
-
     private Token.Str? TokenizeStr()
     {
         int start = current;
@@ -201,6 +195,7 @@ public class Lexer
     {
         int start = current;
         char? character = null;
+        var NotDigit = (char c) => !IsDigit(c);
 
         character = ConsumeChar();
         if (character == null || NotDigit(character.Value))
@@ -248,7 +243,7 @@ public class Lexer
             return null;
         }
 
-        ConsumeUntilExclusive(NotIdentifier);
+        ConsumeUntilExclusive((char c) => !IsIdentifier(c));
 
         return (Token.Identifier) new (text.Substring(startIndex: start, length: current - start));
     }
@@ -345,7 +340,8 @@ public class Lexer
         }
         ConsumeUntilExclusive(c => notColumn(c));
 
-        return ColumnEncodingConverter.Decode(text.Substring(startIndex: start, length: current - start));
+        return ColumnEncodingConverter.Decode
+            (text.Substring(startIndex: start, length: current - start));
     }
 
     private int? ConsumeRow()
@@ -377,6 +373,103 @@ public class Lexer
     private Token? TokenizeKeyword(string keyword, Token token)
         => AcceptStr(keyword) ? token : null;
 
+    private Token? ConvertIdentifier
+        (string identifier, string keywordToMatch, Token convertedToken)
+            => identifier.Equals(keywordToMatch) ? convertedToken : null;
+
+    private Token? TokenizeKeywords()
+        =>
+            // Two or more character symbols
+            TokenizeKeyword("<>", new Token.NotEqual         () ) ??
+            TokenizeKeyword("<=", new Token.LessEqualThan    () ) ??
+            TokenizeKeyword(">=", new Token.GreaterEqualThan () ) ??
+
+            // Single character symbols
+            TokenizeKeyword("%", new Token.Percent          () ) ??
+            TokenizeKeyword("-", new Token.Minus            () ) ??
+            TokenizeKeyword("+", new Token.Plus             () ) ??
+            TokenizeKeyword("^", new Token.Caret            () ) ??
+            TokenizeKeyword("*", new Token.Star             () ) ??
+            TokenizeKeyword("/", new Token.Slash            () ) ??
+            TokenizeKeyword("&", new Token.Ampersand        () ) ??
+            TokenizeKeyword("=", new Token.Equal            () ) ??
+            TokenizeKeyword("<", new Token.LessThan         () ) ??
+            TokenizeKeyword(">", new Token.GreaterThan      () ) ??
+            TokenizeKeyword(":", new Token.Colon            () ) ??
+            TokenizeKeyword("(", new Token.LeftParenthesis  () ) ??
+            TokenizeKeyword(")", new Token.RightParenthesis () ) ??
+
+            null;
+
+    // NOTE: Only keywords are capable of being identifiers.
+    private Token? ConvertIdentifierToKeywords(Token.Identifier identifierToken)
+    {
+        string id = identifierToken.identifier;
+        return
+            ConvertIdentifier(id, "TRUE"   , new Token.True       () ) ??
+            ConvertIdentifier(id, "FALSE"  , new Token.False      () ) ??
+            ConvertIdentifier(id, "#ERROR!", new Token.ErrorError () ) ??
+            ConvertIdentifier(id, "#NAME?" , new Token.ErrorName  () ) ??
+            ConvertIdentifier(id, "#REF!"  , new Token.ErrorRef   () ) ??
+            ConvertIdentifier(id, "#VALUE!", new Token.ErrorValue () ) ??
+            ConvertIdentifier(id, "#DIV/0!", new Token.ErrorDiv0  () ) ??
+            ConvertIdentifier(id, "#NUM!"  , new Token.ErrorNum   () ) ??
+            ConvertIdentifier(id, "#CIRC!" , new Token.ErrorCirc  () ) ??
+
+            identifierToken;
+    }
+
+    private Token? TokenizeToken()
+    {
+        Token? token;
+        Token.Identifier? identifierToken;
+
+        ConsumeUntilExclusive((char c) => !IsWhitespace(c));
+
+        token = TokenizeStr();
+        if (token != null) return token;
+        token = TokenizeNumber();
+        if (token != null) return token;
+        identifierToken = TokenizeIdentifier();
+        if (identifierToken != null)
+        {
+            return ConvertIdentifierToKeywords(identifierToken) ?? identifierToken;
+        }
+        token = TokenizeKeywords();
+        if (token != null) return token;
+
+        return null;
+    }
+
+    private List<Token>? TokenizeTokens()
+    {
+        List<Token> tokens = new List<Token>();
+        bool tokensLeft = true;
+
+        do
+        {
+            Token? token = TokenizeToken();
+            if (token == null)
+            {
+                if (PeekChar() == null)
+                {
+                    tokensLeft = false;
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            else
+            {
+                tokens.Append(token);
+            }
+        }
+        while (tokensLeft);
+
+        return tokens;
+    }
+
     private bool IsDigit(char character)
         => character switch
         {
@@ -393,16 +486,13 @@ public class Lexer
             _ => false,
         };
 
-    private bool NotDigit(char character)
-        => !IsDigit(character);
-
     private bool IsIdentifier(char character)
         => char.IsLetter(character);
-
-    private bool NotIdentifier(char character)
-        => !IsIdentifier(character);
 
     private bool IsAlpha(char character)
         => (character >= 'a' && character <= 'z')
         || (character >= 'A' && character <= 'Z');
+
+    private bool IsWhitespace(char character)
+        => character == ' ' || character == '\t';
 }
