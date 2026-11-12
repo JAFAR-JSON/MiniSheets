@@ -259,7 +259,7 @@ public class Lexer
         char? character = null;
         bool isColumnFixed = false;
         bool isRowFixed = false;
-        string? column = null;
+        int? column = null;
         int? row = null;
 
         // Column fixed
@@ -304,13 +304,13 @@ public class Lexer
             return null;
         }
 
-        return (Token.Cell) new (column, isColumnFixed, row.Value, isRowFixed);
+        return (Token.Cell) new (column.Value, isColumnFixed, row.Value, isRowFixed);
     }
 
     private Token.Cell? TokenizeCellBare()
     {
         int start = current;
-        string? column = null;
+        int? column = null;
         int? row = null;
 
         // Scan column
@@ -329,10 +329,10 @@ public class Lexer
             return null;
         }
 
-        return (Token.Cell) new (column, false, row.Value, false);
+        return (Token.Cell) new (column.Value, false, row.Value, false);
     }
 
-    private string? ConsumeColumn()
+    private int? ConsumeColumn()
     {
         int start = current;
         char? character = null;
@@ -345,7 +345,7 @@ public class Lexer
         }
         ConsumeUntilExclusive(c => notColumn(c));
 
-        return text.Substring(startIndex: start, length: current - start);
+        return ColumnEncodingConverter.Decode(text.Substring(startIndex: start, length: current - start));
     }
 
     private int? ConsumeRow()

@@ -10,5 +10,5 @@ public abstract record Token
     public sealed record Str(string str) : Token;
     public sealed record Number(string number) : Token;
     public sealed record Cell
-        (string column, bool is_column_fixed, int row, bool is_row_fixed) : Token;
+        (int column, bool is_column_fixed, int row, bool is_row_fixed) : Token;
 }
