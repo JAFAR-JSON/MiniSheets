@@ -4,6 +4,7 @@ using System.Text;
 namespace MiniSheets;
 
 // NOT_SPECIFICATION: There was a `Parser` in the specification but no `Lexer`.
+// TODO: I don't really like the fact that reseting Lexer state involves manual manipulation of current.
 public class Lexer
 {
     private string text = ""; // Stores the string that is being parsed.
@@ -11,7 +12,7 @@ public class Lexer
 
     public Lexer() {}
 
-    public Token[] TokenizeText(string text)
+    public Token[]? TokenizeText(string text)
     {
         this.text = text;
         this.current = 0;
@@ -29,7 +30,7 @@ public class Lexer
 
     private bool IsAtEnd()
     {
-        return current < text.Length;
+        return text.Length <= current;
     }
 
     private char? PeekChar()
@@ -190,7 +191,6 @@ public class Lexer
         return (Token.Str) new (strBuilder.ToString());
     }
 
-    // TODO: Make it so that Token stores number in the format requested by the specification. (IEEE-754 doubles)
     private Token.Number? TokenizeNumber()
     {
         int start = current;
@@ -206,12 +206,7 @@ public class Lexer
         ConsumeUntilExclusive(NotDigit);
 
         character = PeekChar();
-        if (character == null)
-        {
-            current = start;
-            return null;
-        }
-        else if (character.Value == '.')
+        if (character != null && character.Value == '.')
         {
             ConsumeChar();
             character = ConsumeChar();
@@ -238,8 +233,9 @@ public class Lexer
         int start = current;
 
         char? character = PeekChar();
-        if (character == null || IsIdentifier(character.Value))
+        if (character == null || !IsIdentifier(character.Value))
         {
+            current = start;
             return null;
         }
 
@@ -398,6 +394,7 @@ public class Lexer
             TokenizeKeyword(":", new Token.Colon            () ) ??
             TokenizeKeyword("(", new Token.LeftParenthesis  () ) ??
             TokenizeKeyword(")", new Token.RightParenthesis () ) ??
+            TokenizeKeyword(",", new Token.Comma            () ) ??
 
             null;
 
@@ -426,43 +423,56 @@ public class Lexer
 
         ConsumeUntilExclusive((char c) => !IsWhitespace(c));
 
+        // Console.WriteLine($"DEBUG: -1 {current}");
         token = TokenizeStr();
         if (token != null) return token;
+        // Console.WriteLine($"DEBUG: 0 {current}");
         token = TokenizeNumber();
         if (token != null) return token;
+        // Console.WriteLine($"DEBUG: 1 {current}");
+        token = TokenizeCell();
+        if (token != null) return token;
+        // Console.WriteLine($"DEBUG: 2 {current}");
         identifierToken = TokenizeIdentifier();
         if (identifierToken != null)
         {
+            // Console.WriteLine($"DEBUG: 3 {current}");
             return ConvertIdentifierToKeywords(identifierToken) ?? identifierToken;
         }
+        // Console.WriteLine($"DEBUG: 4 {current}");
         token = TokenizeKeywords();
         if (token != null) return token;
+        // Console.WriteLine($"DEBUG: 5 {current}");
 
         return null;
     }
 
     private List<Token>? TokenizeTokens()
     {
+        int start = current;
         List<Token> tokens = new List<Token>();
         bool tokensLeft = true;
 
         do
         {
             Token? token = TokenizeToken();
+
             if (token == null)
             {
-                if (PeekChar() == null)
+                if (IsAtEnd())
                 {
+                    // Console.WriteLine($"DEBUG: IsAtEnd(); current={current}; length={text.Length}");
                     tokensLeft = false;
                 }
                 else
                 {
+                    current = start;
                     return null;
                 }
             }
             else
             {
-                tokens.Append(token);
+                tokens.Add(token);
             }
         }
         while (tokensLeft);

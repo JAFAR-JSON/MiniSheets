@@ -38,6 +38,7 @@ public abstract record Token
     public sealed record Colon            () : Token;
     public sealed record LeftParenthesis  () : Token;
     public sealed record RightParenthesis () : Token;
+    public sealed record Comma            () : Token;
 
     // Two or more character symbols
     public sealed record NotEqual        () : Token;
