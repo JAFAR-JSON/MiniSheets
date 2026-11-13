@@ -20,7 +20,7 @@ internal sealed class MenuBar : Border
             {
                 CreateMenuButton("File", "New", "Open", "Save", "Save As", "Import CSV", "Export CSV", "Settings", "Exit"),
                 CreateMenuButton("Edit", "Undo", "Redo", "Cut", "Copy", "Paste"),
-                CreateMenuButton("Format", "Fill", "Text colour", "Increase decimals", "Decrease decimals"),
+                CreateMenuButton("Format", "Fill", "Text colour", "Increase decimals", "Decrease decimals", "Borders"),
                 CreateMenuButton("Sheet", "Add Sheet", "Rename Sheet", "Delete Sheet", "Insert row above", "Delete row", "Insert column left", "Delete column"),
             }
         };
