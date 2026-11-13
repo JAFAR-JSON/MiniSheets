@@ -1,8 +1,10 @@
-﻿using System;
+﻿using Avalonia;
+using Avalonia.Styling;
+using Avalonia.Themes.Fluent;
 
 namespace MiniSheets;
 
-sealed class Program
+internal static class Program
 {
     private static void PrintLexerOutput(Token[]? tokens)
     {
@@ -21,9 +23,32 @@ sealed class Program
 
     public static void Main(string[] args)
     {
-        Lexer lexer = new Lexer();
+        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+    }
 
-        PrintLexerOutput(lexer.TokenizeText("=2+2"));
-        PrintLexerOutput(lexer.TokenizeText("=SUM(ZC$1, ) + 2"));
+    private static AppBuilder BuildAvaloniaApp()
+    {
+        return AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+            .LogToTrace();
+    }
+}
+
+internal sealed class App : Application
+{
+    public App()
+    {
+        RequestedThemeVariant = ThemeVariant.Light;
+        Styles.Add(new FluentTheme());
+    }
+
+    public override void OnFrameworkInitializationCompleted()
+    {
+        if (ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.MainWindow = new MainWindow();
+        }
+
+        base.OnFrameworkInitializationCompleted();
     }
 }
