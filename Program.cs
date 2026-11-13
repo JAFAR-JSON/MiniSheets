@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace MiniSheets;
+﻿namespace MiniSheets;
 
 sealed class Program
 {

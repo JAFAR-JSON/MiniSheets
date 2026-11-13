@@ -1,5 +1,3 @@
-using System;
-
 namespace MiniSheets;
 
 public abstract record Token
@@ -11,7 +9,7 @@ public abstract record Token
     public sealed record Str(string str) : Token;
     public sealed record Number(string number) : Token;
     public sealed record Cell
-        (int column, bool is_column_fixed, int row, bool is_row_fixed) : Token;
+        (int column, bool isColumnFixed, int row, bool isRowFixed) : Token;
 
     // Keywords
     public sealed record True       () : Token;

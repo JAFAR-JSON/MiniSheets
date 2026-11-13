@@ -1,6 +1,3 @@
-using System;
-using System.Text;
-
 static class ColumnEncodingConverter
 {
     // 'Z' is the 26th letter in the alphabet.
