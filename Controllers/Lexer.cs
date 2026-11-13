@@ -4,33 +4,33 @@ using System.Text;
 namespace MiniSheets;
 
 // NOT_SPECIFICATION: There was a `Parser` in the specification but no `Lexer`.
+// TODO: I don't really like the fact that reseting Lexer state involves manual manipulation of current.
 public class Lexer
 {
     private string text = ""; // Stores the string that is being parsed.
     private int current = 0; // Current position inside the `text`.
-    private List<Token> tokens = [];
 
-    Lexer()
-    {
-    }
+    public Lexer() {}
 
-    public Token[] Tokenize(string text)
+    public Token[]? TokenizeText(string text)
     {
         this.text = text;
         this.current = 0;
-        this.tokens = [];
 
-        return [];
-    }
-
-    private void ResetLexer()
-    {
-        current = 0;
+        List<Token>? tokens = TokenizeTokens();
+        if (tokens == null)
+        {
+            return null;
+        }
+        else
+        {
+            return tokens.ToArray();
+        }
     }
 
     private bool IsAtEnd()
     {
-        return current < text.Length;
+        return text.Length <= current;
     }
 
     private char? PeekChar()
@@ -157,11 +157,6 @@ public class Lexer
         while (true);
     }
 
-    private void AddToken(Token token)
-    {
-        tokens.Append(token);
-    }
-
     private Token.Str? TokenizeStr()
     {
         int start = current;
@@ -196,11 +191,11 @@ public class Lexer
         return (Token.Str) new (strBuilder.ToString());
     }
 
-    // TODO: Make it so that Token stores number in the format requested by the specification. (IEEE-754 doubles)
     private Token.Number? TokenizeNumber()
     {
         int start = current;
         char? character = null;
+        var NotDigit = (char c) => !IsDigit(c);
 
         character = ConsumeChar();
         if (character == null || NotDigit(character.Value))
@@ -211,12 +206,7 @@ public class Lexer
         ConsumeUntilExclusive(NotDigit);
 
         character = PeekChar();
-        if (character == null)
-        {
-            current = start;
-            return null;
-        }
-        else if (character.Value == '.')
+        if (character != null && character.Value == '.')
         {
             ConsumeChar();
             character = ConsumeChar();
@@ -243,12 +233,13 @@ public class Lexer
         int start = current;
 
         char? character = PeekChar();
-        if (character == null || IsIdentifier(character.Value))
+        if (character == null || !IsIdentifier(character.Value))
         {
+            current = start;
             return null;
         }
 
-        ConsumeUntilExclusive(NotIdentifier);
+        ConsumeUntilExclusive((char c) => !IsIdentifier(c));
 
         return (Token.Identifier) new (text.Substring(startIndex: start, length: current - start));
     }
@@ -259,7 +250,7 @@ public class Lexer
         char? character = null;
         bool isColumnFixed = false;
         bool isRowFixed = false;
-        string? column = null;
+        int? column = null;
         int? row = null;
 
         // Column fixed
@@ -304,13 +295,13 @@ public class Lexer
             return null;
         }
 
-        return (Token.Cell) new (column, isColumnFixed, row.Value, isRowFixed);
+        return (Token.Cell) new (column.Value, isColumnFixed, row.Value, isRowFixed);
     }
 
     private Token.Cell? TokenizeCellBare()
     {
         int start = current;
-        string? column = null;
+        int? column = null;
         int? row = null;
 
         // Scan column
@@ -329,10 +320,10 @@ public class Lexer
             return null;
         }
 
-        return (Token.Cell) new (column, false, row.Value, false);
+        return (Token.Cell) new (column.Value, false, row.Value, false);
     }
 
-    private string? ConsumeColumn()
+    private int? ConsumeColumn()
     {
         int start = current;
         char? character = null;
@@ -345,7 +336,8 @@ public class Lexer
         }
         ConsumeUntilExclusive(c => notColumn(c));
 
-        return text.Substring(startIndex: start, length: current - start);
+        return ColumnEncodingConverter.Decode
+            (text.Substring(startIndex: start, length: current - start));
     }
 
     private int? ConsumeRow()
@@ -377,6 +369,117 @@ public class Lexer
     private Token? TokenizeKeyword(string keyword, Token token)
         => AcceptStr(keyword) ? token : null;
 
+    private Token? ConvertIdentifier
+        (string identifier, string keywordToMatch, Token convertedToken)
+            => identifier.Equals(keywordToMatch) ? convertedToken : null;
+
+    private Token? TokenizeKeywords()
+        =>
+            // Two or more character symbols
+            TokenizeKeyword("<>", new Token.NotEqual         () ) ??
+            TokenizeKeyword("<=", new Token.LessEqualThan    () ) ??
+            TokenizeKeyword(">=", new Token.GreaterEqualThan () ) ??
+
+            // Single character symbols
+            TokenizeKeyword("%", new Token.Percent          () ) ??
+            TokenizeKeyword("-", new Token.Minus            () ) ??
+            TokenizeKeyword("+", new Token.Plus             () ) ??
+            TokenizeKeyword("^", new Token.Caret            () ) ??
+            TokenizeKeyword("*", new Token.Star             () ) ??
+            TokenizeKeyword("/", new Token.Slash            () ) ??
+            TokenizeKeyword("&", new Token.Ampersand        () ) ??
+            TokenizeKeyword("=", new Token.Equal            () ) ??
+            TokenizeKeyword("<", new Token.LessThan         () ) ??
+            TokenizeKeyword(">", new Token.GreaterThan      () ) ??
+            TokenizeKeyword(":", new Token.Colon            () ) ??
+            TokenizeKeyword("(", new Token.LeftParenthesis  () ) ??
+            TokenizeKeyword(")", new Token.RightParenthesis () ) ??
+            TokenizeKeyword(",", new Token.Comma            () ) ??
+
+            null;
+
+    // NOTE: Only keywords are capable of being identifiers.
+    private Token? ConvertIdentifierToKeywords(Token.Identifier identifierToken)
+    {
+        string id = identifierToken.identifier;
+        return
+            ConvertIdentifier(id, "TRUE"   , new Token.True       () ) ??
+            ConvertIdentifier(id, "FALSE"  , new Token.False      () ) ??
+            ConvertIdentifier(id, "#ERROR!", new Token.ErrorError () ) ??
+            ConvertIdentifier(id, "#NAME?" , new Token.ErrorName  () ) ??
+            ConvertIdentifier(id, "#REF!"  , new Token.ErrorRef   () ) ??
+            ConvertIdentifier(id, "#VALUE!", new Token.ErrorValue () ) ??
+            ConvertIdentifier(id, "#DIV/0!", new Token.ErrorDiv0  () ) ??
+            ConvertIdentifier(id, "#NUM!"  , new Token.ErrorNum   () ) ??
+            ConvertIdentifier(id, "#CIRC!" , new Token.ErrorCirc  () ) ??
+
+            identifierToken;
+    }
+
+    private Token? TokenizeToken()
+    {
+        Token? token;
+        Token.Identifier? identifierToken;
+
+        ConsumeUntilExclusive((char c) => !IsWhitespace(c));
+
+        // Console.WriteLine($"DEBUG: -1 {current}");
+        token = TokenizeStr();
+        if (token != null) return token;
+        // Console.WriteLine($"DEBUG: 0 {current}");
+        token = TokenizeNumber();
+        if (token != null) return token;
+        // Console.WriteLine($"DEBUG: 1 {current}");
+        token = TokenizeCell();
+        if (token != null) return token;
+        // Console.WriteLine($"DEBUG: 2 {current}");
+        identifierToken = TokenizeIdentifier();
+        if (identifierToken != null)
+        {
+            // Console.WriteLine($"DEBUG: 3 {current}");
+            return ConvertIdentifierToKeywords(identifierToken) ?? identifierToken;
+        }
+        // Console.WriteLine($"DEBUG: 4 {current}");
+        token = TokenizeKeywords();
+        if (token != null) return token;
+        // Console.WriteLine($"DEBUG: 5 {current}");
+
+        return null;
+    }
+
+    private List<Token>? TokenizeTokens()
+    {
+        int start = current;
+        List<Token> tokens = new List<Token>();
+        bool tokensLeft = true;
+
+        do
+        {
+            Token? token = TokenizeToken();
+
+            if (token == null)
+            {
+                if (IsAtEnd())
+                {
+                    // Console.WriteLine($"DEBUG: IsAtEnd(); current={current}; length={text.Length}");
+                    tokensLeft = false;
+                }
+                else
+                {
+                    current = start;
+                    return null;
+                }
+            }
+            else
+            {
+                tokens.Add(token);
+            }
+        }
+        while (tokensLeft);
+
+        return tokens;
+    }
+
     private bool IsDigit(char character)
         => character switch
         {
@@ -393,16 +496,13 @@ public class Lexer
             _ => false,
         };
 
-    private bool NotDigit(char character)
-        => !IsDigit(character);
-
     private bool IsIdentifier(char character)
         => char.IsLetter(character);
-
-    private bool NotIdentifier(char character)
-        => !IsIdentifier(character);
 
     private bool IsAlpha(char character)
         => (character >= 'a' && character <= 'z')
         || (character >= 'A' && character <= 'Z');
+
+    private bool IsWhitespace(char character)
+        => character == ' ' || character == '\t';
 }
