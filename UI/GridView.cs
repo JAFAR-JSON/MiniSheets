@@ -3,6 +3,7 @@ using Avalonia.Media;
 using Avalonia.Layout;
 using Avalonia;
 using Avalonia.Controls.Primitives;
+using Avalonia.Styling;
 
 namespace MiniSheets;
 
@@ -13,6 +14,10 @@ internal class GridView : Border
     private const int RowCount = 100;
     private const double CellWidth = 110;
     private const double CellHeight = 30;
+
+    private Border? _selectedCell;
+    private TextBox? _activeTextBox;
+    private Border? _editingCell;
 
     private Vector _offset;
 
@@ -84,6 +89,7 @@ internal class GridView : Border
                 Text = (rowIndex + 1).ToString(),
                 FontSize = 14,
                 Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                Padding = new Thickness(4, 0, 0, 0),
                 TextAlignment = TextAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center
@@ -94,7 +100,8 @@ internal class GridView : Border
                 Background = new SolidColorBrush(Color.Parse("#f3f4f6")),
                 BorderBrush = new SolidColorBrush(Color.Parse("#83878da8")),
                 BorderThickness = new Thickness(0.6),
-                Child = textBlock
+                Child = textBlock,
+                
             };
 
             Grid.SetRow(numberedCell, rowIndex + 1);
@@ -109,6 +116,7 @@ internal class GridView : Border
                     Text = "",
                     FontSize = 14,
                     Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                    Padding = new Thickness(4, 0, 0, 0),
                     TextAlignment = TextAlignment.Left,
                     VerticalAlignment = VerticalAlignment.Center,
                     HorizontalAlignment = HorizontalAlignment.Left
@@ -122,12 +130,101 @@ internal class GridView : Border
                     Child = cellContent
                 };
 
+                cellBorder.PointerPressed += (sender, e) =>
+                {
+                    // If another cell is being edited, finish editing
+                    if (_activeTextBox != null && _editingCell != cellBorder)
+                    {
+                        FinishEditing();
+                    }
+
+                    // Deselect previous cell
+                    if (_selectedCell != null && _selectedCell != cellBorder)
+                    {
+                        _selectedCell.BorderBrush =
+                            new SolidColorBrush(Color.Parse("#83878da8"));
+
+                        _selectedCell.BorderThickness = new Thickness(0.6);
+                    }
+
+                    // Select current cell
+                    _selectedCell = cellBorder;
+
+                    cellBorder.BorderBrush =
+                        new SolidColorBrush(Color.Parse("#252627"));
+
+                    cellBorder.BorderThickness = new Thickness(2);
+
+                    e.Handled = true;
+                };
+
+                cellBorder.DoubleTapped += (sender, e) =>
+                {
+                    if (_activeTextBox != null)
+                        return;
+
+                    var existingText = (cellBorder.Child as TextBlock)?.Text ?? "";
+                    var textBox = new TextBox
+                    {
+                        Text = existingText,
+                        FontSize = 14,
+                        Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                        BorderThickness = new Thickness(0),
+                        CornerRadius = new CornerRadius(0),
+                        VerticalContentAlignment = VerticalAlignment.Center,
+                        Styles =
+                        {
+                            CreateTextBoxFocusStyle()
+                        }
+                    };
+
+                    cellBorder.Child = textBox;
+
+                    cellBorder.BorderBrush = new SolidColorBrush(Color.Parse("#83878da8"));
+                    cellBorder.BorderThickness = new Thickness(0.6);
+
+                    _activeTextBox = textBox;
+                    _editingCell = cellBorder;
+
+                    textBox.Focus();
+                    textBox.CaretIndex = textBox.Text?.Length ?? 0;
+
+                    e.Handled = true;
+                };
+
+
                 Grid.SetRow(cellBorder, rowIndex + 1);
                 Grid.SetColumn(cellBorder, cellIndex);
 
                 _grid.Children.Add(cellBorder);
             }
         }
+    }
+    
+    private void FinishEditing()
+    {
+        if (_activeTextBox == null || _editingCell == null)
+            return;
+
+        var textBox = _activeTextBox;
+
+        if (_editingCell.Child is TextBox)
+        {
+            var cellContent = new TextBlock
+            {
+                Text = textBox.Text,
+                FontSize = 14,
+                Foreground = new SolidColorBrush(Color.Parse("#374151")),
+                TextAlignment = TextAlignment.Left,
+                Padding = new Thickness(4, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+
+            _editingCell.Child = cellContent;
+        }
+        _activeTextBox = null;
+        _editingCell = null;
     }
 
 
@@ -148,5 +245,25 @@ internal class GridView : Border
         }
 
         return result;
+    }
+
+    private Style CreateTextBoxFocusStyle()
+    {
+        return new Style(selector => selector
+            .OfType<TextBox>()
+            .Class(":focus")
+            .Descendant()
+            .OfType<Border>()
+            .Name("PART_BorderElement"))
+        {
+            Setters =
+            {
+                new Setter(Border.BorderBrushProperty,
+                    new SolidColorBrush(Color.Parse("#252627"))),
+
+                new Setter(Border.BorderThicknessProperty,
+                    new Thickness(2)),
+            }
+        };
     }
 }
