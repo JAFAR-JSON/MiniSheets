@@ -11,14 +11,14 @@ internal sealed class MainWindow : Window
     public MainWindow()
     {
         Title = "MiniSheets";
-        Width = 900;
+        Width = 960;
         Height = 600;
         Content = new DockPanel
         {
             LastChildFill = true,
             Children =
             {
-                new ToolBar
+                new MenuBar()
                 {
                     [DockPanel.DockProperty] = Dock.Top
                 },
@@ -26,9 +26,29 @@ internal sealed class MainWindow : Window
                 {
                     [DockPanel.DockProperty] = Dock.Top,
                     Height = 1,
-                    Background = new SolidColorBrush(Color.Parse("#aca3a370")),
+                    Background = new SolidColorBrush(Color.Parse("#aca3a38e")),
                     Margin = new Thickness(0),
                     Padding = new Thickness(0)
+                },
+                new ToolBar()
+                {
+                    [DockPanel.DockProperty] = Dock.Top
+                },
+                new Separator
+                {
+                    [DockPanel.DockProperty] = Dock.Top,
+                    Height = 1,
+                    Background = new SolidColorBrush(Color.Parse("#aca3a38e")),
+                    Margin = new Thickness(0),
+                    Padding = new Thickness(0)
+                },
+                new FormulaBar()
+                {
+                    [DockPanel.DockProperty] = Dock.Top
+                },
+                new GridView()
+                {
+                    [DockPanel.DockProperty] = Dock.Top
                 },
                 new Border()
             }
