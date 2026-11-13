@@ -13,15 +13,19 @@ internal sealed class MainWindow : Window
         Title = "MiniSheets";
         Width = 960;
         Height = 600;
+
+        var menuBar = new MenuBar();
+        var gridView = new GridView();
+
+        DockPanel.SetDock(menuBar, Dock.Top);
+        DockPanel.SetDock(gridView, Dock.Top);
+
         Content = new DockPanel
         {
             LastChildFill = true,
             Children =
             {
-                new MenuBar()
-                {
-                    [DockPanel.DockProperty] = Dock.Top
-                },
+                menuBar,
                 new Separator
                 {
                     [DockPanel.DockProperty] = Dock.Top,
@@ -46,12 +50,14 @@ internal sealed class MainWindow : Window
                 {
                     [DockPanel.DockProperty] = Dock.Top
                 },
-                new GridView()
-                {
-                    [DockPanel.DockProperty] = Dock.Top
-                },
+                gridView,
                 new Border()
             }
         };
+
+        // Click events
+
+        // Borders menu item click event
+        menuBar.BordersClicked += (_, _) => gridView.ApplyBorderToSelectedCell();
     }
 }

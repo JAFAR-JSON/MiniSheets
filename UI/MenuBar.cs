@@ -8,6 +8,8 @@ namespace MiniSheets;
 
 internal sealed class MenuBar : Border
 {
+    public event EventHandler? BordersClicked;
+
     public MenuBar()
     {
         Padding = new Thickness(6, 2);
@@ -30,12 +32,21 @@ internal sealed class MenuBar : Border
     {
         var menu = new MenuFlyout();
 
+        var index = 0;
         foreach (var item in items)
         {
-            menu.Items.Add(new MenuItem
+            var menuItem = new MenuItem
             {
                 Header = item
-            });
+            };
+
+            if (item == "Borders")
+            {
+                menuItem.Click += (_, _) => BordersClicked?.Invoke(this, EventArgs.Empty);
+            }
+
+            menu.Items.Add(menuItem);
+            index++;
         }
 
         menu.Placement = PlacementMode.BottomEdgeAlignedLeft;

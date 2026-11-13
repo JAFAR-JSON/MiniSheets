@@ -20,6 +20,8 @@ internal class GridView : Border
     private TextBox? _activeTextBox;
     private Border? _editingCell;
 
+    private readonly List<Border> _highlightedCells = new();
+
     private Vector _offset;
 
     public GridView()
@@ -184,11 +186,20 @@ internal class GridView : Border
                     textBox.Focus();
                     textBox.CaretIndex = textBox.Text?.Length ?? 0;
 
+                    textBox.LostFocus += (_, _) =>
+                    {
+                        FinishEditing();
+                    };
+
                     textBox.KeyDown += (s, e) =>
                     {
                         if (IsNavigationKey(e.Key))
                         {
                             EnterOrArrowPressedOnCell(currentRow, currentColumn, e.Key);
+                            if(_highlightedCells.Contains(cellBorder))
+                            {
+                                PermenantlyHighlightCell(cellBorder);
+                            }
                             e.Handled = true;
                         }
                         else if (e.Key == Key.Escape)
@@ -226,18 +237,21 @@ internal class GridView : Border
         // Deselect previous cell
         if (_selectedCell != null && _selectedCell != cellBorder)
         {
-            _selectedCell.BorderBrush =
-            new SolidColorBrush(Color.Parse("#83878da8"));
-
-            _selectedCell.BorderThickness = new Thickness(0.6);
+            if (!_highlightedCells.Contains(_selectedCell))
+            {
+                ResetCellBorder(_selectedCell);
+                _highlightedCells.Remove(_selectedCell);
+            }
+            else
+            {
+                PermenantlyHighlightCell(_selectedCell);
+            }
         }
 
         // Select current cell
         _selectedCell = cellBorder;
 
-        cellBorder.BorderBrush =
-        new SolidColorBrush(Color.Parse("#252627"));
-
+        cellBorder.BorderBrush = new SolidColorBrush(Color.Parse("#252627"));
         cellBorder.BorderThickness = new Thickness(2);
     }
     
@@ -283,7 +297,38 @@ internal class GridView : Border
                 Grid.GetRow(cell) == row + 1 &&
                 Grid.GetColumn(cell) == column);
     }
-    
+
+    public void ApplyBorderToSelectedCell()
+    {
+        if (_selectedCell == null)
+            return;
+
+        if (!_highlightedCells.Contains(_selectedCell))
+        {
+            _highlightedCells.Add(_selectedCell);
+            _selectedCell.Focus();
+        }
+        else
+        {
+            _highlightedCells.Remove(_selectedCell);
+            _selectedCell.BorderBrush = new SolidColorBrush(Color.Parse("#252627"));
+            _selectedCell.BorderThickness = new Thickness(2);
+             _selectedCell.Focus();
+        }
+    }
+
+    private static void PermenantlyHighlightCell(Border cell)
+    {
+        cell.BorderBrush = new SolidColorBrush(Color.Parse("#565b5f"));
+        cell.BorderThickness = new Thickness(2);
+    }
+
+    private static void ResetCellBorder(Border cell)
+    {
+        cell.BorderBrush = new SolidColorBrush(Color.Parse("#83878da8"));
+        cell.BorderThickness = new Thickness(0.6);
+    }
+
     private void FinishEditing()
     {
         if (_activeTextBox == null || _editingCell == null)
