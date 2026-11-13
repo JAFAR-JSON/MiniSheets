@@ -4,6 +4,7 @@ using Avalonia.Layout;
 using Avalonia;
 using Avalonia.Controls.Primitives;
 using Avalonia.Styling;
+using Avalonia.Input;
 
 namespace MiniSheets;
 
@@ -34,7 +35,7 @@ internal class GridView : Border
                     )
                 )
             ),
-            RowDefinitions = new RowDefinitions(string.Join(", ", Enumerable.Repeat(CellHeight.ToString(), 100))),
+            RowDefinitions = new RowDefinitions(string.Join(", ", Enumerable.Repeat(CellHeight.ToString(), 101))),
             ColumnSpacing = 0,
             RowSpacing = 0
         };
@@ -101,7 +102,7 @@ internal class GridView : Border
                 BorderBrush = new SolidColorBrush(Color.Parse("#83878da8")),
                 BorderThickness = new Thickness(0.6),
                 Child = textBlock,
-                
+
             };
 
             Grid.SetRow(numberedCell, rowIndex + 1);
@@ -111,6 +112,9 @@ internal class GridView : Border
 
             for (int cellIndex = 1; cellIndex <= ColumnCount; cellIndex++)
             {
+                int currentRow = rowIndex;
+                int currentColumn = cellIndex;
+
                 var cellContent = new TextBlock
                 {
                     Text = "",
@@ -127,35 +131,26 @@ internal class GridView : Border
                     Background = Brushes.White,
                     BorderBrush = new SolidColorBrush(Color.Parse("#83878da8")),
                     BorderThickness = new Thickness(0.6),
-                    Child = cellContent
+                    Child = cellContent,
+                    Focusable = true
                 };
 
+                // Clicked or highlighted cell once
                 cellBorder.PointerPressed += (sender, e) =>
                 {
-                    // If another cell is being edited, finish editing
-                    if (_activeTextBox != null && _editingCell != cellBorder)
-                    {
-                        FinishEditing();
-                    }
-
-                    // Deselect previous cell
-                    if (_selectedCell != null && _selectedCell != cellBorder)
-                    {
-                        _selectedCell.BorderBrush =
-                            new SolidColorBrush(Color.Parse("#83878da8"));
-
-                        _selectedCell.BorderThickness = new Thickness(0.6);
-                    }
-
-                    // Select current cell
-                    _selectedCell = cellBorder;
-
-                    cellBorder.BorderBrush =
-                        new SolidColorBrush(Color.Parse("#252627"));
-
-                    cellBorder.BorderThickness = new Thickness(2);
+                    CellClicked(cellBorder);
+                    cellBorder.Focus();
 
                     e.Handled = true;
+                };
+                
+                cellBorder.KeyDown += (s, e) =>
+                {
+                    if (e.Source == cellBorder && IsNavigationKey(e.Key))
+                    {
+                        EnterOrArrowPressedOnCell(currentRow, currentColumn, e.Key);
+                        e.Handled = true;
+                    }
                 };
 
                 cellBorder.DoubleTapped += (sender, e) =>
@@ -189,6 +184,20 @@ internal class GridView : Border
                     textBox.Focus();
                     textBox.CaretIndex = textBox.Text?.Length ?? 0;
 
+                    textBox.KeyDown += (s, e) =>
+                    {
+                        if (IsNavigationKey(e.Key))
+                        {
+                            EnterOrArrowPressedOnCell(currentRow, currentColumn, e.Key);
+                            e.Handled = true;
+                        }
+                        else if (e.Key == Key.Escape)
+                        {
+                            textBox.Text = "";
+                            e.Handled = true;
+                        }
+                    };
+
                     e.Handled = true;
                 };
 
@@ -200,6 +209,80 @@ internal class GridView : Border
             }
         }
     }
+
+    private static bool IsNavigationKey(Key key)
+    {
+        return key is Key.Enter or Key.Left or Key.Right or Key.Up or Key.Down;
+    }
+
+    private void CellClicked(Border cellBorder)
+    {
+        // If another cell is being edited, finish editing
+        if (_activeTextBox != null && _editingCell != cellBorder)
+        {
+            FinishEditing();
+        }
+
+        // Deselect previous cell
+        if (_selectedCell != null && _selectedCell != cellBorder)
+        {
+            _selectedCell.BorderBrush =
+            new SolidColorBrush(Color.Parse("#83878da8"));
+
+            _selectedCell.BorderThickness = new Thickness(0.6);
+        }
+
+        // Select current cell
+        _selectedCell = cellBorder;
+
+        cellBorder.BorderBrush =
+        new SolidColorBrush(Color.Parse("#252627"));
+
+        cellBorder.BorderThickness = new Thickness(2);
+    }
+    
+    private void EnterOrArrowPressedOnCell(int currentRow, int currentColumn, Key key)
+    {
+        FinishEditing();
+
+        var targetRow = currentRow;
+        var targetColumn = currentColumn;
+
+        switch (key)
+        {
+            case Key.Left when currentColumn > 1:
+                targetColumn--;
+                break;
+            case Key.Right when currentColumn < ColumnCount:
+                targetColumn++;
+                break;
+            case Key.Up when currentRow > 0:
+                targetRow--;
+                break;
+            case Key.Down or Key.Enter when currentRow < RowCount - 1:
+                targetRow++;
+                break;
+            default:
+                return;
+        }
+
+        var nextCell = GetCell(targetRow, targetColumn);
+
+        if (nextCell != null)
+        {
+            CellClicked(nextCell);
+            nextCell.Focus();
+        }
+    }
+
+    private Border? GetCell(int row, int column)
+    {
+        return _grid.Children
+            .OfType<Border>()
+            .FirstOrDefault(cell =>
+                Grid.GetRow(cell) == row + 1 &&
+                Grid.GetColumn(cell) == column);
+    }
     
     private void FinishEditing()
     {
@@ -207,8 +290,9 @@ internal class GridView : Border
             return;
 
         var textBox = _activeTextBox;
+        var editingCell = _editingCell;
 
-        if (_editingCell.Child is TextBox)
+        if (editingCell.Child is TextBox)
         {
             var cellContent = new TextBlock
             {
@@ -221,8 +305,10 @@ internal class GridView : Border
                 HorizontalAlignment = HorizontalAlignment.Left,
             };
 
-            _editingCell.Child = cellContent;
+            editingCell.Child = cellContent;
         }
+
+        CellClicked(editingCell);
         _activeTextBox = null;
         _editingCell = null;
     }
