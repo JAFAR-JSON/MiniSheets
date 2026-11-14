@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Models;
 
 namespace MiniSheets;
 
@@ -13,15 +14,24 @@ internal sealed class MainWindow : Window
         Title = "MiniSheets";
         Width = 960;
         Height = 600;
+
+        var menuBar = new MenuBar();
+        var formulaBar = new FormulaBar();
+
+        var spreadsheet = new Spreadsheet(100, 100);
+        var gridView = new GridView(spreadsheet);
+        var uiHandler = new SpreadSheetUiEventHandler(gridView, formulaBar, menuBar);
+
+        DockPanel.SetDock(menuBar, Dock.Top);
+        DockPanel.SetDock(formulaBar, Dock.Top);
+        DockPanel.SetDock(gridView, Dock.Top);
+
         Content = new DockPanel
         {
             LastChildFill = true,
             Children =
             {
-                new MenuBar()
-                {
-                    [DockPanel.DockProperty] = Dock.Top
-                },
+                menuBar,
                 new Separator
                 {
                     [DockPanel.DockProperty] = Dock.Top,
@@ -42,16 +52,11 @@ internal sealed class MainWindow : Window
                     Margin = new Thickness(0),
                     Padding = new Thickness(0)
                 },
-                new FormulaBar()
-                {
-                    [DockPanel.DockProperty] = Dock.Top
-                },
-                new GridView()
-                {
-                    [DockPanel.DockProperty] = Dock.Top
-                },
+                formulaBar,
+                gridView,
                 new Border()
             }
         };
+
     }
 }

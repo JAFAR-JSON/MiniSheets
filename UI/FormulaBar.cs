@@ -6,19 +6,45 @@ using Avalonia.Styling;
 
 namespace MiniSheets;
 
-internal sealed class FormulaBar : Border
+public class FormulaBar : Border
 {
+
+    private readonly TextBox _formulaTextBox;
+    private readonly TextBox _nameBox;
+
+    public event EventHandler<string>? ChangeGridCellContent;
+    public event EventHandler? EnterPressed;
+
     public FormulaBar()
     {
-        Padding = new Thickness(10, 10, 30, 10);
+        Padding = new Thickness(10, 10, 30, 10); 
 
         var functionLabel = CreateFunctionLabel();
-        var formulaTextBox = CreateFormulaTextBox();
-        var nameBox = CreateNameBox();
+        _formulaTextBox = CreateFormulaTextBox();
+        _nameBox = CreateNameBox();
 
-        Grid.SetColumn(nameBox, 0);
+        _formulaTextBox.TextChanged += (_, _) =>
+        {
+            if (_formulaTextBox is TextBox formulaTextBox)
+            {
+                var text = formulaTextBox.Text ?? string.Empty;
+                // Event gets triggered in SpreadSheetUiHandler
+                ChangeGridCellContent?.Invoke(this, text);
+            }
+        };
+
+        _formulaTextBox.KeyDown += (_, e) =>
+        {
+            if (e.Key == Avalonia.Input.Key.Enter)
+            {
+                EnterPressed?.Invoke(this, EventArgs.Empty);
+                e.Handled = true;
+            }
+        };
+
+        Grid.SetColumn(_nameBox, 0);
         Grid.SetColumn(functionLabel, 2);
-        Grid.SetColumn(formulaTextBox, 4);
+        Grid.SetColumn(_formulaTextBox, 4);
 
         Child = new Grid
         {
@@ -26,9 +52,9 @@ internal sealed class FormulaBar : Border
             ColumnSpacing = 0,
             Children =
             {
-                nameBox,
+                _nameBox,
                 functionLabel,
-                formulaTextBox
+                _formulaTextBox
             }
         };
     }
@@ -53,6 +79,18 @@ internal sealed class FormulaBar : Border
         };
     }
 
+    public void SetSelectedCell(string cellName, string text)
+    {
+        if (_nameBox.Text != cellName)
+        {
+            _nameBox.Text = cellName;
+        }
+
+        if (_formulaTextBox.Text != text)
+        {
+            _formulaTextBox.Text = text;
+        }
+    }
 
     private TextBlock CreateFunctionLabel()
     {
