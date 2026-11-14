@@ -1,4 +1,4 @@
-namespace MiniSheets;
+namespace MiniSheets.Shared;
 
 static class ColumnEncodingConverter
 {

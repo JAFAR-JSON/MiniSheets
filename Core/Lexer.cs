@@ -1,3 +1,4 @@
+using MiniSheets.Shared;
 using System.Text;
 
 namespace MiniSheets.Core;
@@ -161,7 +162,6 @@ public class Lexer
         int start = current;
 
         StringBuilder strBuilder = new StringBuilder("");
-        bool isEscaping = false;
         char? character = null;
         
         if (!AcceptChar('"'))

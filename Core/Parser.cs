@@ -171,10 +171,10 @@ public class Parser
 
     private Expr ParseExprUnary()
     {
-        Token token = PeekToken();
+        Token? token = PeekToken();
         if (token is null)
         {
-            return null;
+            ConsumeToken();
         }
 
         UnaryExprOperator? unaryOperator = token switch

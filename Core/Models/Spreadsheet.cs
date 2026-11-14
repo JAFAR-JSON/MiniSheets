@@ -1,4 +1,4 @@
-namespace Models;
+namespace MiniSheets.Core;
 
 public class Spreadsheet
 {

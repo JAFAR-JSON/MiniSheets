@@ -5,7 +5,7 @@ using Avalonia;
 using Avalonia.Controls.Primitives;
 using Avalonia.Styling;
 using Avalonia.Input;
-using Models;
+using MiniSheets.Core;
 
 namespace MiniSheets;
 

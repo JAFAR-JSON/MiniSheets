@@ -1,5 +1,5 @@
 
-namespace MiniSheets;
+namespace MiniSheets.State;
 
 // Class to handle ui events like clicking cells, changing content, chaging formula content, applying borders
 internal class SpreadSheetUiEventHandler
