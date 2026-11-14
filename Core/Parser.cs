@@ -15,7 +15,8 @@ public class Parser
         _tokens = tokens;
         _current = 0;
 
-        throw new ParsingException("Not implemented yet");
+        return ParseExpr();
+        // throw new ParsingException("Not implemented yet");
     }
 
     private bool IsAtEnd()
@@ -291,7 +292,8 @@ public class Parser
 
     private Expr ParseExpr()
     {
-        throw new ParsingException("Not implemented yet");
+        return ParseExprComparison();
+        // throw new ParsingException("Not implemented yet");
     }
 
     /// <summary>

@@ -160,7 +160,7 @@ public class Lexer
     {
         int start = current;
 
-        StringBuilder strBuilder = new StringBuilder();
+        StringBuilder strBuilder = new StringBuilder("");
         bool isEscaping = false;
         char? character = null;
         
@@ -171,23 +171,31 @@ public class Lexer
 
         do
         {
-            character = PeekChar();
+            character = ConsumeChar();
             if (character == null)
             {
                 current = start;
                 return null;
             }
-            SkipChar();
-            strBuilder.Append(character.Value);
-
-            if (character == '"')
+            else if (character == '"')
             {
-                isEscaping = !isEscaping;
+                SkipChar();
+                character = ConsumeChar();
+                if (character == null || character != '"')
+                {
+                    break;
+                }
+
+                strBuilder.Append('"');
+            }
+            else
+            {
+                strBuilder.Append(character.Value);
             }
         }
-        while (character != '\"' || isEscaping);
+        while (true);
 
-        return (Token.Str) new (strBuilder.ToString());
+        return new Token.Str(strBuilder.ToString());
     }
 
     private Token.Number? TokenizeNumber()
@@ -224,7 +232,7 @@ public class Lexer
             ConsumeUntilExclusive(NotDigit);
         }
 
-        return (Token.Number) new (text.Substring(startIndex: start, length: current - start));
+        return new Token.Number(text.Substring(startIndex: start, length: current - start));
     }
 
     private Token.Identifier? TokenizeIdentifier()
