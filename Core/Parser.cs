@@ -3,47 +3,42 @@ namespace MiniSheets.Core;
 // https://craftinginterpreters.com/parsing-expressions.html
 public class Parser
 {
-    private Token[] tokens = {};
-    private int current = 0;
+    private Token[] _tokens = {};
+    private int _current = 0;
 
     public Parser() { }
     
     public Expr ParseTokens(Token[] tokens)
     {
-        tokens = tokens;
-        current = 0;
+        _tokens = tokens;
+        _current = 0;
 
-        return null;
+        throw new ParsingException("Not implemented yet");
     }
 
     private bool IsAtEnd()
     {
-        return tokens.Length <= current;
+        return _tokens.Length <= _current;
     }
 
-    private Token? PeekToken()
+    private Token PeekToken()
     {
         if (IsAtEnd())
         {
-            return null;
+            throw new ParsingException("No more tokens left");
         }
 
-        return tokens[current];
+        return _tokens[_current];
     }
 
     private void SkipToken()
     {
-        current++;
+        _current++;
     }
 
-    private Token? ConsumeToken()
+    private Token ConsumeToken()
     {
-        Token? token = PeekToken();
-
-        if (token == null)
-        {
-            return null;
-        }
+        Token token = PeekToken();
 
         SkipToken();
 
@@ -52,45 +47,73 @@ public class Parser
 
     private bool AcceptToken(Token acceptedToken)
     {
-        Token? token = PeekToken();
+        try
+        {
+            Token token = PeekToken();
+            if (token != acceptedToken) // TODO: I don't think this works as I expect it to.
+            {
+                return false;
+            }
 
-        if (token == null || token != acceptedToken)
+            ConsumeToken();
+
+            return true;
+        }
+        catch (ParsingException)
         {
             return false;
         }
-
-        ConsumeToken();
-
-        return true;
     }
 
-    private Expr? ParseExprPrimary()
+    private Expr ParseExprPrimary()
     {
-        int start = current;
-        Token? token = null;
-
-        token = ConsumeToken();
-        if (token == null)
+        int start = _current;
+        try
         {
-            current = start;
-            return null;
+            Token token;
+
+            token = ConsumeToken();
+            switch (token)
+            {
+                case Token.Identifier t:
+                    return new Expr.Literal.Identifier(t.identifier);
+
+                case Token.Str t:
+                    return new Expr.Literal.Str(t.str);
+
+                case Token.Number t:
+                    return new Expr.Literal.Number(t.number);
+
+                case Token.Cell t:
+                    return new Expr.Literal.Cell
+                        (t.column, t.isColumnFixed, t.row, t.isRowFixed);
+
+                case Token.LeftParenthesis _:
+                {
+                    Expr innerExpr = ParseExpr();
+
+                    Token rightParenthesis = ConsumeToken();
+                    if (!(rightParenthesis is Token.RightParenthesis _))
+                    {
+                        throw new ParsingException("No accompanying right parenthesis found.");
+                    }
+                    return innerExpr;
+                }
+
+                default:
+                    throw new ParsingException("Failed to parse primary exception.");
+            }
         }
-
-        return token switch
+        catch (ParsingException)
         {
-            Token.Identifier identifier => new Expr.Literal.Identifier(identifier.identifier),
-            Token.Str str               => new Expr.Literal.Str(str.str),
-            Token.Number number         => new Expr.Literal.Number(number.number),
-            Token.Cell cell             => new Expr.Literal.Cell
-                (cell.column, cell.isColumnFixed, cell.row, cell.isRowFixed),
-            // Token.LeftParenthesis _     => { return null }, 
-            _ => null
-        };
+            _current = start;
+            throw;
+        }
     }
 
-    private Expr? ParseExpr()
+    private Expr ParseExpr()
     {
-        return null;
+        throw new ParsingException("Not implemented yet");
     }
 
     /// <summary>

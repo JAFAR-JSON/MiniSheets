@@ -87,7 +87,7 @@ public class Lexer
         {
             return text.Substring(startIndex: current, length: length);
         }
-        catch (ArgumentOutOfRangeException _)
+        catch (ArgumentOutOfRangeException)
         {
             return null;
         }
