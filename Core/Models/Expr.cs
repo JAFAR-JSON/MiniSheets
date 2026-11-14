@@ -5,13 +5,13 @@ public abstract record Expr
     private Expr() {}
 
     // public sealed record Literal() : Expr;
-    public abstract record Literal() : Expr
+    public abstract record Primary() : Expr
     {
-        public sealed record Identifier(string identifier) : Literal;
-        public sealed record Str(string str) : Literal;
-        public sealed record Number(string number) : Literal;
+        public sealed record Identifier(string identifier) : Primary;
+        public sealed record Str(string str) : Primary;
+        public sealed record Number(string number) : Primary;
         public sealed record Cell
-            (int column, bool isColumnFixed, int row, bool isRowFixed) : Literal;
+            (int column, bool isColumnFixed, int row, bool isRowFixed) : Primary;
     }
 
     public sealed record Unary(UnaryExprOperator op, Expr body) : Expr;

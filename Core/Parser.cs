@@ -15,8 +15,14 @@ public class Parser
         _tokens = tokens;
         _current = 0;
 
-        return ParseExpr();
-        // throw new ParsingException("Not implemented yet");
+        try
+        {
+            return ParseExpr();
+        }
+        catch (ParsingException)
+        {
+            throw;
+        }
     }
 
     private bool IsAtEnd()
@@ -54,22 +60,15 @@ public class Parser
 
     private bool AcceptToken(Token acceptedToken)
     {
-        try
-        {
-            Token? token = PeekToken();
-            if (token is null || token != acceptedToken) // TODO: I don't think this works as I expect it to.
-            {
-                return false;
-            }
-
-            ConsumeToken();
-
-            return true;
-        }
-        catch (ParsingException)
+        Token? token = PeekToken();
+        if (token is null || token != acceptedToken) // TODO: I don't think this works as I expect it to.
         {
             return false;
         }
+
+        SkipToken();
+
+        return true;
     }
 
     private bool MatchToken(params Type[] tokenTypes)
@@ -80,7 +79,13 @@ public class Parser
             return false;
         }
 
-        return tokenTypes.Any(type => type == token.GetType());
+        bool tokenMatches = tokenTypes.Any(type => type == token.GetType());
+        if (tokenMatches)
+        {
+            SkipToken();
+        }
+
+        return tokenMatches;
     }
 
     private Token PreviousToken()
@@ -101,16 +106,16 @@ public class Parser
         switch (token)
         {
             case Token.Identifier t:
-                return new Expr.Literal.Identifier(t.identifier);
+                return new Expr.Primary.Identifier(t.identifier);
 
             case Token.Str t:
-                return new Expr.Literal.Str(t.str);
+                return new Expr.Primary.Str(t.str);
 
             case Token.Number t:
-                return new Expr.Literal.Number(t.number);
+                return new Expr.Primary.Number(t.number);
 
             case Token.Cell t:
-                return new Expr.Literal.Cell
+                return new Expr.Primary.Cell
                     (t.column, t.isColumnFixed, t.row, t.isRowFixed);
 
             case Token.LeftParenthesis _:
@@ -156,6 +161,8 @@ public class Parser
                 break;
             }
 
+            SkipToken();
+
             expr = new Expr.Unary(unaryOperator.Value, expr);
         }
 
@@ -164,11 +171,11 @@ public class Parser
 
     private Expr ParseExprUnary()
     {
-        Token token;
-        try
-            { token = ConsumeToken();}
-        catch (ParsingException)
-            { return ParseExprPostfix(); }
+        Token token = PeekToken();
+        if (token is null)
+        {
+            return null;
+        }
 
         UnaryExprOperator? unaryOperator = token switch
         {
@@ -176,9 +183,10 @@ public class Parser
             Token.Plus  => UnaryExprOperator.Plus  ,
             _ => null
         };
+
         if (unaryOperator is null)
         {
-            throw new ParsingException("Couldn't recognize unary operator.");
+            return ParseExprPostfix();
         }
 
         return new Expr.Unary(unaryOperator.Value, ParseExprUnary());
