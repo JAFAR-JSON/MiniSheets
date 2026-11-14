@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace MiniSheets.Core;
+namespace MiniSheets.Core.Formula;
 
 // https://craftinginterpreters.com/parsing-expressions.html
 public class Parser

@@ -1,7 +1,7 @@
-using MiniSheets.Shared;
 using System.Text;
+using MiniSheets.Shared;
 
-namespace MiniSheets.Core;
+namespace MiniSheets.Core.Formula;
 
 // NOT_SPECIFICATION: There was a `Parser` in the specification but no `Lexer`.
 // TODO: I don't really like the fact that reseting Lexer state involves manual manipulation of current.

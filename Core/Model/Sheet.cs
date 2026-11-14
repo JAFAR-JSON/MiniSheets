@@ -1,13 +1,13 @@
-namespace MiniSheets.Core;
+namespace MiniSheets.Core.Model;
 
-public class Spreadsheet
+public class Sheet
 {
     public int RowCount { get; }
     public int ColumnCount { get; }
 
     public List<Cell> Cells { get; } = new();
 
-    public Spreadsheet(int rowCount, int columnCount)
+    public Sheet(int rowCount, int columnCount)
     {
         RowCount = rowCount;
         ColumnCount = columnCount;

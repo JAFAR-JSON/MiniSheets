@@ -5,15 +5,15 @@ using Avalonia;
 using Avalonia.Controls.Primitives;
 using Avalonia.Styling;
 using Avalonia.Input;
-using MiniSheets.Core;
+using MiniSheets.Core.Model;
 
-namespace MiniSheets;
+namespace MiniSheets.UI;
 
 internal class GridView : Border
 {
     private readonly Grid _grid;
 
-    private readonly Spreadsheet _spreadsheet;
+    private readonly Sheet _sheet;
 
     private const double CellWidth = 110;
     private const double CellHeight = 30;
@@ -26,9 +26,9 @@ internal class GridView : Border
 
     public event EventHandler<(string cellName, string text)>? SelectedCellChanged;
 
-    public GridView(Spreadsheet spreadsheet)
+    public GridView(Sheet sheet)
     {
-        _spreadsheet = spreadsheet;
+        _sheet = sheet;
         Padding = new Thickness(10);
 
         _grid = new Grid
@@ -36,7 +36,7 @@ internal class GridView : Border
             ColumnDefinitions = new ColumnDefinitions(
                 string.Join(", ",
                     new[] { "40" }.Concat(
-                        Enumerable.Repeat(CellWidth.ToString(), _spreadsheet.ColumnCount)
+                        Enumerable.Repeat(CellWidth.ToString(), _sheet.ColumnCount)
                     )
                 )
             ),
@@ -59,7 +59,7 @@ internal class GridView : Border
 
     private void CreateHeaders()
     {
-        for (int i = -1; i < _spreadsheet.ColumnCount; i++)
+        for (int i = -1; i < _sheet.ColumnCount; i++)
         {
             var textBlock = new TextBlock
             {
@@ -88,7 +88,7 @@ internal class GridView : Border
 
     private void CreateRows()
     {
-        for (int rowIndex = 0; rowIndex < _spreadsheet.RowCount; rowIndex++)
+        for (int rowIndex = 0; rowIndex < _sheet.RowCount; rowIndex++)
         {
             var textBlock = new TextBlock
             {
@@ -115,14 +115,14 @@ internal class GridView : Border
 
             _grid.Children.Add(numberedCell);
 
-            for (int cellIndex = 1; cellIndex <= _spreadsheet.ColumnCount; cellIndex++)
+            for (int cellIndex = 1; cellIndex <= _sheet.ColumnCount; cellIndex++)
             {
                 int currentRow = rowIndex;
                 int currentColumn = cellIndex;
 
                 var cellContent = new TextBlock
                 {
-                    Text = _spreadsheet.GetCell(currentRow, currentColumn).Value,
+                    Text = _sheet.GetCell(currentRow, currentColumn).Value,
                     FontSize = 14,
                     Foreground = new SolidColorBrush(Color.Parse("#374151")),
                     Padding = new Thickness(4, 0, 0, 0),
@@ -312,13 +312,13 @@ internal class GridView : Border
             case Key.Left when currentColumn > 1:
                 targetColumn--;
                 break;
-            case Key.Right when currentColumn < _spreadsheet.ColumnCount:
+            case Key.Right when currentColumn < _sheet.ColumnCount:
                 targetColumn++;
                 break;
             case Key.Up when currentRow > 0:
                 targetRow--;
                 break;
-            case Key.Down or Key.Enter when currentRow < _spreadsheet.RowCount - 1:
+            case Key.Down or Key.Enter when currentRow < _sheet.RowCount - 1:
                 targetRow++;
                 break;
             default:
@@ -350,15 +350,15 @@ internal class GridView : Border
 
         if (!_highlightedCells.Contains(_selectedCell))
         {
-            _spreadsheet.GetCell(Grid.GetRow(_selectedCell) - 1, Grid.GetColumn(_selectedCell)).IsStyled = true;
-            _spreadsheet.GetCell(Grid.GetRow(_selectedCell) - 1, Grid.GetColumn(_selectedCell)).Style.HasBorders = true;
+            _sheet.GetCell(Grid.GetRow(_selectedCell) - 1, Grid.GetColumn(_selectedCell)).IsStyled = true;
+            _sheet.GetCell(Grid.GetRow(_selectedCell) - 1, Grid.GetColumn(_selectedCell)).Style.HasBorders = true;
 
             _highlightedCells.Add(_selectedCell);
             _selectedCell.Focus();
         }
         else
         {
-            _spreadsheet.GetCell(Grid.GetRow(_selectedCell) - 1, Grid.GetColumn(_selectedCell)).Style.HasBorders = false;
+            _sheet.GetCell(Grid.GetRow(_selectedCell) - 1, Grid.GetColumn(_selectedCell)).Style.HasBorders = false;
 
             _highlightedCells.Remove(_selectedCell);
             _selectedCell.BorderBrush = new SolidColorBrush(Color.Parse("#252627"));

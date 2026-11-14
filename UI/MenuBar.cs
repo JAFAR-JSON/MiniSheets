@@ -4,7 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 
-namespace MiniSheets;
+namespace MiniSheets.UI;
 
 internal sealed class MenuBar : Border
 {

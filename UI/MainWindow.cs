@@ -3,10 +3,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
-using MiniSheets.Core;
+using MiniSheets.Core.Model;
 using MiniSheets.State;
 
-namespace MiniSheets;
+namespace MiniSheets.UI;
 
 internal sealed class MainWindow : Window
 {
@@ -19,8 +19,8 @@ internal sealed class MainWindow : Window
         var menuBar = new MenuBar();
         var formulaBar = new FormulaBar();
 
-        var spreadsheet = new Spreadsheet(100, 100);
-        var gridView = new GridView(spreadsheet);
+        var sheet = new Sheet(100, 100);
+        var gridView = new GridView(sheet);
         var uiHandler = new SpreadSheetUiEventHandler(gridView, formulaBar, menuBar);
 
         DockPanel.SetDock(menuBar, Dock.Top);

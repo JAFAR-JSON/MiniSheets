@@ -1,4 +1,4 @@
-namespace MiniSheets.Core;
+namespace MiniSheets.Core.Formula;
 
 public abstract record Token
 {

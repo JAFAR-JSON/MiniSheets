@@ -4,7 +4,7 @@ using Avalonia.Layout;
 using Avalonia;
 using Avalonia.Styling;
 
-namespace MiniSheets;
+namespace MiniSheets.UI;
 
 public class FormulaBar : Border
 {
