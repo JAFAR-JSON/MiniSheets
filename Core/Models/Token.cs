@@ -1,6 +1,4 @@
-using System;
-
-namespace MiniSheets;
+namespace MiniSheets.Core;
 
 public abstract record Token
 {
@@ -11,7 +9,7 @@ public abstract record Token
     public sealed record Str(string str) : Token;
     public sealed record Number(string number) : Token;
     public sealed record Cell
-        (int column, bool is_column_fixed, int row, bool is_row_fixed) : Token;
+        (int column, bool isColumnFixed, int row, bool isRowFixed) : Token;
 
     // Keywords
     public sealed record True       () : Token;
@@ -42,6 +40,6 @@ public abstract record Token
 
     // Two or more character symbols
     public sealed record NotEqual        () : Token;
-    public sealed record LessEqualThan   () : Token;
-    public sealed record GreaterEqualThan() : Token;
+    public sealed record LessThanEqual   () : Token;
+    public sealed record GreaterThanEqual() : Token;
 }

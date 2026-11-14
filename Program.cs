@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
+using MiniSheets.Core;
 
 namespace MiniSheets;
 

@@ -1,7 +1,6 @@
-using System;
 using System.Text;
 
-namespace MiniSheets;
+namespace MiniSheets.Core;
 
 // NOT_SPECIFICATION: There was a `Parser` in the specification but no `Lexer`.
 // TODO: I don't really like the fact that reseting Lexer state involves manual manipulation of current.
@@ -88,7 +87,7 @@ public class Lexer
         {
             return text.Substring(startIndex: current, length: length);
         }
-        catch (ArgumentOutOfRangeException _)
+        catch (ArgumentOutOfRangeException)
         {
             return null;
         }
@@ -161,7 +160,7 @@ public class Lexer
     {
         int start = current;
 
-        StringBuilder strBuilder = new StringBuilder();
+        StringBuilder strBuilder = new StringBuilder("");
         bool isEscaping = false;
         char? character = null;
         
@@ -172,23 +171,31 @@ public class Lexer
 
         do
         {
-            character = PeekChar();
+            character = ConsumeChar();
             if (character == null)
             {
                 current = start;
                 return null;
             }
-            SkipChar();
-            strBuilder.Append(character.Value);
-
-            if (character == '"')
+            else if (character == '"')
             {
-                isEscaping = !isEscaping;
+                SkipChar();
+                character = ConsumeChar();
+                if (character == null || character != '"')
+                {
+                    break;
+                }
+
+                strBuilder.Append('"');
+            }
+            else
+            {
+                strBuilder.Append(character.Value);
             }
         }
-        while (character != '\"' || isEscaping);
+        while (true);
 
-        return (Token.Str) new (strBuilder.ToString());
+        return new Token.Str(strBuilder.ToString());
     }
 
     private Token.Number? TokenizeNumber()
@@ -225,7 +232,7 @@ public class Lexer
             ConsumeUntilExclusive(NotDigit);
         }
 
-        return (Token.Number) new (text.Substring(startIndex: start, length: current - start));
+        return new Token.Number(text.Substring(startIndex: start, length: current - start));
     }
 
     private Token.Identifier? TokenizeIdentifier()
@@ -377,8 +384,8 @@ public class Lexer
         =>
             // Two or more character symbols
             TokenizeKeyword("<>", new Token.NotEqual         () ) ??
-            TokenizeKeyword("<=", new Token.LessEqualThan    () ) ??
-            TokenizeKeyword(">=", new Token.GreaterEqualThan () ) ??
+            TokenizeKeyword("<=", new Token.LessThanEqual    () ) ??
+            TokenizeKeyword(">=", new Token.GreaterThanEqual () ) ??
 
             // Single character symbols
             TokenizeKeyword("%", new Token.Percent          () ) ??
