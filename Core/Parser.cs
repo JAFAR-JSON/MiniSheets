@@ -1,4 +1,4 @@
-namespace MiniSheets;
+namespace MiniSheets.Core;
 
 // https://craftinginterpreters.com/parsing-expressions.html
 public class Parser

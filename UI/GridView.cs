@@ -10,8 +10,8 @@ namespace MiniSheets;
 internal class GridView : Border
 {
     private readonly Grid _grid;
-    private const int ColumnCount = 100;
-    private const int RowCount = 100;
+    private const int ColumnCount = 10;
+    private const int RowCount = 10;
     private const double CellWidth = 110;
     private const double CellHeight = 30;
 

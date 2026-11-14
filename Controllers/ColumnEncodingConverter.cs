@@ -1,8 +1,10 @@
+namespace MiniSheets;
+
 static class ColumnEncodingConverter
 {
     // 'Z' is the 26th letter in the alphabet.
     private const int decodedZ  = 26;
-    private const int decodedZZ = 26 * 26;
+    private const int decodedZZ = 702;
 
     public static int? Decode(string encoded)
     {
