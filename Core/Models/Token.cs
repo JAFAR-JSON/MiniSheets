@@ -1,4 +1,4 @@
-namespace MiniSheets;
+namespace MiniSheets.Core;
 
 public abstract record Token
 {
@@ -40,6 +40,6 @@ public abstract record Token
 
     // Two or more character symbols
     public sealed record NotEqual        () : Token;
-    public sealed record LessEqualThan   () : Token;
-    public sealed record GreaterEqualThan() : Token;
+    public sealed record LessThanEqual   () : Token;
+    public sealed record GreaterThanEqual() : Token;
 }

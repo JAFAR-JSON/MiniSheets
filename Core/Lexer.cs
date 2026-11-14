@@ -376,8 +376,8 @@ public class Lexer
         =>
             // Two or more character symbols
             TokenizeKeyword("<>", new Token.NotEqual         () ) ??
-            TokenizeKeyword("<=", new Token.LessEqualThan    () ) ??
-            TokenizeKeyword(">=", new Token.GreaterEqualThan () ) ??
+            TokenizeKeyword("<=", new Token.LessThanEqual    () ) ??
+            TokenizeKeyword(">=", new Token.GreaterThanEqual () ) ??
 
             // Single character symbols
             TokenizeKeyword("%", new Token.Percent          () ) ??

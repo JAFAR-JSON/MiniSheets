@@ -1,4 +1,4 @@
-namespace MiniSheets;
+namespace MiniSheets.Core;
 
 public abstract record Expr
 {
@@ -14,8 +14,8 @@ public abstract record Expr
             (int column, bool isColumnFixed, int row, bool isRowFixed) : Literal;
     }
 
-    public sealed record Unary(Expr body) : Expr;
-    public sealed record Binary(Expr left, Expr right) : Expr;
+    public sealed record Unary(UnaryExprOperator op, Expr body) : Expr;
+    public sealed record Binary(BinaryExprOperator op, Expr left, Expr right) : Expr;
 
     // // Literals
     // public sealed record Identifier(string identifier) : ASTNode;
