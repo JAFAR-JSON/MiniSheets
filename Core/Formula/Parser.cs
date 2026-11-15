@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using MiniSheets.Core.Model;
 
 namespace MiniSheets.Core.Formula;
 
@@ -7,8 +8,22 @@ public class Parser
 {
     private Token[] _tokens = {};
     private int _current = 0;
+    private Lexer _lexer = new Lexer();
 
     public Parser() { }
+
+    public Expr ParseText(string text)
+    {
+        Token[]? tokens = _lexer.TokenizeText(text);
+        if (tokens is null)
+        {
+            return ParseTokens(new Token[]{});
+        }
+        else
+        {
+            return ParseTokens(tokens);
+        }
+    }
     
     public Expr ParseTokens(Token[] tokens)
     {
@@ -21,7 +36,7 @@ public class Parser
         }
         catch (ParsingException)
         {
-            throw;
+            return new Expr.Primary.Error("#ERROR!");
         }
     }
 
@@ -106,17 +121,17 @@ public class Parser
         switch (token)
         {
             case Token.Identifier t:
-                return new Expr.Primary.Identifier(t.identifier);
+                return new Expr.Primary.Identifier(t.Value);
 
             case Token.Str t:
-                return new Expr.Primary.Str(t.str);
+                return new Expr.Primary.Text(t.Value);
 
             case Token.Number t:
-                return new Expr.Primary.Number(t.number);
+                return new Expr.Primary.Number(t.Value);
 
             case Token.Cell t:
                 return new Expr.Primary.Cell
-                    (t.column, t.isColumnFixed, t.row, t.isRowFixed);
+                    (t.Column, t.IsColumnFixed, t.Row, t.IsRowFixed);
 
             case Token.LeftParenthesis _:
             {
