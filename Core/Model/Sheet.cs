@@ -17,6 +17,32 @@ public class Sheet
 
     public Sheet() { }
     public Sheet(string name) { this.Name = name; }
+    // Used when opening a file, the id has to stay the same as in the file.
+    public Sheet(Guid id, string name) { this.Id = id; this.Name = name; }
+
+    public IEnumerable<KeyValuePair<CellKey, Cell>> GetCells()
+        => _cells;
+
+    public void SetCell(CellKey cellKey, Cell cell)
+    {
+        _cells[cellKey] = cell;
+    }
+
+    public IReadOnlyDictionary<int, int> GetColumnWidths()
+        => _columnWidths;
+
+    public IReadOnlyDictionary<int, int> GetRowHeights()
+        => _rowHeights;
+
+    public void SetColumnWidth(int column, int width)
+    {
+        _columnWidths[column] = width;
+    }
+
+    public void SetRowHeight(int row, int height)
+    {
+        _rowHeights[row] = height;
+    }
 
     public Cell GetCell(CellKey cellKey)
     {
