@@ -14,6 +14,7 @@ public class FormulaBar : Border
 
     public event EventHandler<string>? ChangeGridCellContent;
     public event EventHandler? EnterPressed;
+    public event EventHandler<(string firstChar, string restOfCellName)>? GoToCell;
 
     public FormulaBar()
     {
@@ -22,6 +23,28 @@ public class FormulaBar : Border
         var functionLabel = CreateFunctionLabel();
         _formulaTextBox = CreateFormulaTextBox();
         _nameBox = CreateNameBox();
+
+        _nameBox.KeyDown += (_, e) =>
+        {
+            if (e.Key == Avalonia.Input.Key.Enter)
+            {
+                var cellName = _nameBox.Text ?? string.Empty;
+                var firstChar = cellName.Length > 0 ? cellName[0] : '\0';
+                var secondChar = cellName.Length > 1 ? cellName[1] : '\0';
+                var restOfCellName = cellName.Length > 1 ? cellName.Substring(1) : string.Empty;
+                Console.WriteLine($"GoToCell event triggered with: {firstChar}, {secondChar}, {restOfCellName}");
+                if (char.IsLetter(firstChar) && char.IsDigit(secondChar) && !string.IsNullOrEmpty(restOfCellName) && int.TryParse(restOfCellName, out var rowNumber) && rowNumber > 0 && rowNumber <= 10000)
+                {
+                    //Console.WriteLine($"GoToCell event triggered with: {firstChar}, {rowNumber}");
+                    GoToCell?.Invoke(this, (firstChar.ToString(), rowNumber.ToString()));
+                }
+                else if (char.IsLetter(firstChar) && char.IsLetter(secondChar) && !string.IsNullOrEmpty(restOfCellName) && int.TryParse(restOfCellName, out var rowNumber2) && rowNumber2 > 0 && rowNumber2 <= 10000)
+                {
+                    GoToCell?.Invoke(this, ((firstChar + secondChar).ToString(), rowNumber2.ToString()));
+                }
+                e.Handled = true;
+            }
+        };
 
         _formulaTextBox.TextChanged += (_, _) =>
         {

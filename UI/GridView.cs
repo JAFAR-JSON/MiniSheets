@@ -16,10 +16,12 @@ internal class GridView : Border
     private readonly Sheet _sheet;
     private readonly ScrollViewer _scrollViewer;
 
+    private readonly Dictionary<CellKey, Border> _visibleCells = new();
+
     private const double CellWidth = 110;
     private const double CellHeight = 30;
     private const int InitialRows = 20;
-    private const int InitialColumns = 26;
+    private const int InitialColumns = 20;
     private const int ScrollBuffer = 5;
 
     private const int MaxRows = 10000;
@@ -69,9 +71,35 @@ internal class GridView : Border
         Child = _scrollViewer;
 
         _scrollViewer.ScrollChanged += (_, _) => OnScrollChanged();
+        AttachedToVisualTree += (_, _) => VirtualizeVisibleCells();
 
         CreateHeaders();
         CreateInitialRows();
+    }
+
+    private void AddVisibleCell(int row, int column)
+    {
+        var key = new CellKey(row, column);
+
+        if (_visibleCells.ContainsKey(key))
+            return;
+
+        var cell = CreateDynamicCell(row, column);
+
+        _grid.Children.Add(cell);
+        _visibleCells.Add(key, cell);
+    }
+
+    private void RemoveVisibleCell(CellKey key)
+    {
+        if (!_visibleCells.TryGetValue(key, out var cell))
+            return;
+
+        if (cell == _selectedCell || cell == _editingCell)
+            return;
+
+        _grid.Children.Remove(cell);
+        _visibleCells.Remove(key);
     }
 
     private void AddRows(int count)
@@ -100,38 +128,13 @@ internal class GridView : Border
                 new ColumnDefinition(new GridLength(CellWidth))
             );
 
-            CreateColumn(columnIndex);
+            CreateColumnHeader(columnIndex);
 
             _renderedColumns++;
         }
     }
 
     // Removes rows that are not longer visible completely
-    private void RemoveRowsTo(int rowCount)
-    {
-        rowCount = Math.Max(InitialRows, rowCount);
-        if (rowCount >= _renderedRows)
-            return;
-
-        if (_editingCell != null && Grid.GetRow(_editingCell) > rowCount)
-            FinishEditing();
-
-        foreach (var child in _grid.Children.OfType<Control>().ToList())
-        {
-            if (Grid.GetRow(child) > rowCount)
-            {
-                if (child == _selectedCell)
-                    _selectedCell = null;
-                _grid.Children.Remove(child);
-            }
-        }
-
-        while (_grid.RowDefinitions.Count > rowCount + 1)
-            _grid.RowDefinitions.RemoveAt(_grid.RowDefinitions.Count - 1);
-
-        _renderedRows = rowCount;
-    }
-
     private void RemoveColumnsTo(int columnCount)
     {
         columnCount = Math.Max(InitialColumns, columnCount);
@@ -141,14 +144,11 @@ internal class GridView : Border
         if (_editingCell != null && Grid.GetColumn(_editingCell) > columnCount)
             FinishEditing();
 
-        foreach (var child in _grid.Children.OfType<Control>().ToList())
+        foreach (var key in _visibleCells.Keys
+                     .Where(key => key.Column > columnCount)
+                     .ToList())
         {
-            if (Grid.GetColumn(child) > columnCount)
-            {
-                if (child == _selectedCell)
-                    _selectedCell = null;
-                _grid.Children.Remove(child);
-            }
+            RemoveVisibleCell(key);
         }
 
         while (_grid.ColumnDefinitions.Count > columnCount + 1)
@@ -157,7 +157,29 @@ internal class GridView : Border
         _renderedColumns = columnCount;
     }
 
-    private void CreateColumn(int columnIndex)
+    private void RemoveDownwardRows(int rowCount)
+    {
+        rowCount = Math.Max(InitialRows, rowCount);
+        if (rowCount >= _renderedRows)
+            return;
+
+        if (_editingCell != null && Grid.GetRow(_editingCell) > rowCount)
+            FinishEditing();
+
+        foreach (var key in _visibleCells.Keys
+                     .Where(key => key.Row >= rowCount)
+                     .ToList())
+        {
+            RemoveVisibleCell(key);
+        }
+
+        while (_grid.RowDefinitions.Count > rowCount + 1)
+            _grid.RowDefinitions.RemoveAt(_grid.RowDefinitions.Count - 1);
+
+        _renderedRows = rowCount;
+    }
+
+    private void CreateColumnHeader(int columnIndex)
     {
         var headerText = new TextBlock
         {
@@ -180,17 +202,6 @@ internal class GridView : Border
         Grid.SetRow(header, 0);
         Grid.SetColumn(header, columnIndex);
         _grid.Children.Add(header);
-
-        // Newly added columns only need their header here. Cells are created
-        // by VirtualizeVisibleCells when they enter the viewport buffer.
-        if (columnIndex <= InitialColumns)
-        {
-            for (int rowIndex = 0; rowIndex < _renderedRows; rowIndex++)
-            {
-                var cell = CreateDynamicCell(rowIndex, columnIndex);
-                _grid.Children.Add(cell);
-            }
-        }
     }
 
     private Border CreateDynamicCell(int rowIndex, int columnIndex)
@@ -273,6 +284,8 @@ internal class GridView : Border
 
         Grid.SetRow(cell, rowIndex + 1);
         Grid.SetColumn(cell, columnIndex);
+        Canvas.SetLeft(cell, 40 + ((columnIndex - 1) * CellWidth));
+        Canvas.SetTop(cell, CellHeight + (rowIndex * CellHeight));
         return cell;
     }
 
@@ -294,6 +307,8 @@ internal class GridView : Border
             (_scrollViewer.Offset.X + _scrollViewer.Viewport.Width - 40) / CellWidth)
             + ScrollBuffer;
 
+        Console.WriteLine($"Scroll changed: requiredRows={requiredRows}, requiredColumns={requiredColumns}");
+
         if (requiredRows > MaxRows)
             requiredRows = MaxRows;
 
@@ -309,14 +324,13 @@ internal class GridView : Border
             while (_renderedColumns < requiredColumns)
                 AddColumns(Math.Min(BatchSize, requiredColumns - _renderedColumns));
 
-            if (_scrollViewer.Offset.Y < _lastOffsetY)
-                RemoveRowsTo(requiredRows);
-
             if (_scrollViewer.Offset.X < _lastOffsetX)
             {
                 RemoveColumnsTo(requiredColumns);
             }
-                
+
+            if (_scrollViewer.Offset.Y < _lastOffsetY)
+                RemoveDownwardRows(requiredRows);
         }
         finally
         {
@@ -342,7 +356,7 @@ internal class GridView : Border
             (int)Math.Ceiling((_scrollViewer.Offset.X + _scrollViewer.Viewport.Width - 40) / CellWidth)
             + ScrollBuffer);
 
-        // Remove off screen cells but only the border, do not delete them completely
+        // Remove offscreen cells while retaining their data in the sheet.
         foreach (var cell in _grid.Children.OfType<Border>().ToList())
         {
             var row = Grid.GetRow(cell) - 1;
@@ -351,26 +365,30 @@ internal class GridView : Border
                 (row < firstRow || row >= lastRow || column < firstColumn || column > lastColumn) &&
                 cell != _selectedCell && cell != _editingCell)
             {
+                RemoveVisibleCell(new CellKey(row, column));
+            }
+            // Remove offscreen row headers
+            else if (row >= 0 && column == 0 &&
+                     (row < firstRow || row >= lastRow))
+            {
                 _grid.Children.Remove(cell);
             }
         }
 
         for (var row = firstRow; row < lastRow; row++)
         {
+            // Create row headers for visible rows
+            if (!_grid.Children.OfType<Border>().Any(cell =>
+                    Grid.GetRow(cell) == row + 1 && Grid.GetColumn(cell) == 0))
+            {
+                CreateRow(row);
+            }
+
             for (var column = firstColumn; column <= lastColumn; column++)
             {
-                if (!HasCell(row, column))
-                {
-                    _grid.Children.Add(CreateDynamicCell(row, column));
-                }
+                AddVisibleCell(row, column);
             }
         }
-    }
-
-    private bool HasCell(int row, int column)
-    {
-        return _grid.Children.OfType<Border>().Any(cell =>
-            Grid.GetRow(cell) == row + 1 && Grid.GetColumn(cell) == column);
     }
 
     private void CreateHeaders()
@@ -433,16 +451,10 @@ internal class GridView : Border
         {
             for (int cellIndex = 1; cellIndex <= _renderedColumns; cellIndex++)
             {
-                int currentRow = rowIndex;
-                int currentColumn = cellIndex;
-
-                var cellBorder = CreateDynamicCell(currentRow, currentColumn);
-                Grid.SetRow(cellBorder, rowIndex + 1);
-                Grid.SetColumn(cellBorder, cellIndex);
-
-                _grid.Children.Add(cellBorder);
+                AddVisibleCell(rowIndex, cellIndex);
             }
         }
+
     }
 
     private void CreateInitialRows()
@@ -476,15 +488,7 @@ internal class GridView : Border
 
             for (int cellIndex = 1; cellIndex <= InitialColumns; cellIndex++)
             {
-                int currentRow = rowIndex;
-                int currentColumn = cellIndex;
-
-                var cellBorder = CreateDynamicCell(currentRow, currentColumn);
-
-                Grid.SetRow(cellBorder, rowIndex + 1);
-                Grid.SetColumn(cellBorder, cellIndex);
-
-                _grid.Children.Add(cellBorder);
+                AddVisibleCell(rowIndex, cellIndex);
             }
         }
     }
@@ -587,12 +591,47 @@ internal class GridView : Border
                 return;
         }
 
-        var nextCell = GetCell(targetRow, targetColumn);
+        SelectCellAt(targetRow, targetColumn);
+    }
 
-        if (nextCell != null)
+    private void SelectCellAt(int row, int column)
+    {
+        if (row < 0 || row >= MaxRows || column < 1 || column > MaxColumns)
+            return;
+
+        EnsureRenderedThrough(row, column);
+
+        var targetOffsetX = Math.Max(0, (column - 1) * CellWidth - 40);
+        var targetOffsetY = Math.Max(0, row * CellHeight);
+        Console.WriteLine($"Scrolling to: OffsetX={targetOffsetX}, OffsetY={targetOffsetY}, Row={row}, Column={column}");
+
+        _scrollViewer.Offset = new Vector(targetOffsetX, targetOffsetY);
+        Console.WriteLine($"ScrollViewer Offset after setting: {_scrollViewer.Offset.X}, {_scrollViewer.Offset.Y}");
+        OnScrollChanged();
+        VirtualizeVisibleCells();
+
+        var cell = GetCell(row, column);
+        if (cell == null)
+            return;
+
+        CellClicked(cell);
+        cell.Focus();
+    }
+
+    private void EnsureRenderedThrough(int row, int column)
+    {
+        _isUpdatingScroll = true;
+        try
         {
-            CellClicked(nextCell);
-            nextCell.Focus();
+            while (_renderedRows <= row)
+                   AddRows(Math.Min(BatchSize, row - _renderedRows + 1));
+
+            while (_renderedColumns < column)
+                AddColumns(Math.Min(BatchSize, column - _renderedColumns));
+        }
+        finally
+        {
+            _isUpdatingScroll = false;
         }
     }
 
@@ -696,6 +735,31 @@ internal class GridView : Border
             index = index / 26 - 1;
         }
 
+        return result;
+    }
+
+    public void GoToCell(string columnName, string rowName)
+    {
+        if (!int.TryParse(rowName, out int row) || row < 1 || row > MaxRows)
+            return;
+
+        int column = ColumnNameToIndex(columnName);
+        if (column < 1 || column > MaxColumns)
+            return;
+        Console.WriteLine($"Going to cell: {columnName}{row}");
+        SelectCellAt(row - 1, column);
+    }
+
+    private int ColumnNameToIndex(string columnName)
+    {
+        int result = 0;
+        foreach (char c in columnName)
+        {
+            if (char.IsLetter(c))
+            {
+                result = result * 26 + (char.ToUpper(c) - 'A' + 1);
+            }
+        }
         return result;
     }
 

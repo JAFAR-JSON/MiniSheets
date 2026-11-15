@@ -22,6 +22,8 @@ internal class SpreadSheetUiEventHandler
         menuBar.BordersClicked += ApplyBorderToSelectedCell;
 
         _formulaBar.EnterPressed += MoveDownToNextCell;
+
+        _formulaBar.GoToCell += SendGridToCell;
     }
 
     private void UpdateSelectedCellContent(object? sender, string text)
@@ -42,6 +44,11 @@ internal class SpreadSheetUiEventHandler
     private void MoveDownToNextCell(object? sender, EventArgs e)
     {
         _gridView.MoveDownToNextCell();
+    }
+
+    private void SendGridToCell(object? sender, (string columnName, string rowName) e)
+    {
+        _gridView.GoToCell(e.columnName, e.rowName);
     }
 
 }
