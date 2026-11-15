@@ -67,8 +67,8 @@ static class ColumnEncodingConverter
         => character >= 'A' && character <= 'Z';
 
     private static int GetCharColumnPosition(char character)
-        => character - 'A' + 1;
+        => character - 'A';
 
     private static char GetColumnPositionChar(int columnPosition)
-        => (char) (columnPosition + 'A' - 1);
+        => (char) (columnPosition + 'A');
 }

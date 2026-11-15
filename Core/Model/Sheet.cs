@@ -1,39 +1,56 @@
 namespace MiniSheets.Core.Model;
 
+// I think it is very important to keep the classes defined in the Data Model
+// as close to the specification as possible. This part of the project is rather detailed,
+// and is presumably going to be used pretty much every where, hence the more it deviates from
+// it's definition from the specification, the harder it is to reason about.
+// The structure should remain the same, however, some additional helper functions or fields,
+// or whatever are not entirely unwelcome.
 public class Sheet
 {
-    public int RowCount { get; }
-    public int ColumnCount { get; }
+    public Guid Id { get; } = Guid.NewGuid();
+    public string Name { get; set; } = "";
 
-    public List<Cell> Cells { get; } = new();
+    private Dictionary<CellKey, Cell> _cells   { get; set; } = new();
+    private Dictionary<int, int> _columnWidths { get; set; } = new(); // NOT_SPECIFICATION: The names of these fields.
+    private Dictionary<int, int> _rowHeights   { get; set; } = new(); // NOT_SPECIFICATION: The names of these fields.
 
-    public Sheet(int rowCount, int columnCount)
+    public Sheet() { }
+    public Sheet(string name) { this.Name = name; }
+
+    public Cell GetCell(CellKey cellKey)
     {
-        RowCount = rowCount;
-        ColumnCount = columnCount;
-
-        InitializeCells();
-    }
-
-    private void InitializeCells()
-    {
-        for (int row = 1; row <= RowCount; row++)
+        if (_cells.TryGetValue(cellKey, out Cell cell))
         {
-            for (int column = 1; column <= ColumnCount; column++)
-            {
-                Cells.Add(new Cell(row, column));
-            }
+            return cell;
+        }
+        else
+        {
+            Cell newCell = new Cell();
+            _cells[cellKey] = newCell;
+            return newCell;
         }
     }
 
-    public Cell GetCell(int row, int column)
+    public int GetFarthestInitializedColumn
     {
-        if (row < 0 || row >= RowCount)
-            throw new ArgumentOutOfRangeException(nameof(row));
+        get
+        {
+            return _cells.Keys
+                .Select(key => key.Column)
+                .DefaultIfEmpty(0)
+                .Max();
+        }
+    }
 
-        if (column < 1 || column > ColumnCount)
-            throw new ArgumentOutOfRangeException(nameof(column));
-
-        return Cells[row * ColumnCount + (column - 1)];
+    public int GetFarthestInitializedRow
+    {
+        get
+        {
+            return _cells.Keys
+                .Select(key => key.Row)
+                .DefaultIfEmpty(0)
+                .Max();
+        }
     }
 }

@@ -19,7 +19,7 @@ internal sealed class MainWindow : Window
         var menuBar = new MenuBar();
         var formulaBar = new FormulaBar();
 
-        var sheet = new Sheet(100, 100);
+        var sheet = new Sheet();
         var gridView = new GridView(sheet);
         var uiHandler = new SpreadSheetUiEventHandler(gridView, formulaBar, menuBar);
 
