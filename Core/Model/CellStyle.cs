@@ -1,4 +1,4 @@
-namespace MiniSheets.Core;
+namespace MiniSheets.Core.Model;
 
 public class CellStyle
 {
@@ -8,9 +8,9 @@ public class CellStyle
 
     public CurrencyType Currency { get; set; } = CurrencyType.EUR;
 
-    public string Fill { get; set; } = "#FFFFFF";
+    public string? Fill { get; set; } = "#FFFFFF";
 
-    public string TextColor { get; set; } = "#000000";
+    public string? TextColor { get; set; } = "#000000";
 
     public bool HasBorders { get; set; } = false;
 }

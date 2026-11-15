@@ -1,7 +1,7 @@
-using MiniSheets.Shared;
 using System.Text;
+using MiniSheets.Shared;
 
-namespace MiniSheets.Core;
+namespace MiniSheets.Core.Formula;
 
 // NOT_SPECIFICATION: There was a `Parser` in the specification but no `Lexer`.
 // TODO: I don't really like the fact that reseting Lexer state involves manual manipulation of current.
@@ -410,15 +410,15 @@ public class Lexer
     {
         string id = identifierToken.identifier;
         return
-            ConvertIdentifier(id, "TRUE"   , new Token.True       () ) ??
-            ConvertIdentifier(id, "FALSE"  , new Token.False      () ) ??
-            ConvertIdentifier(id, "#ERROR!", new Token.ErrorError () ) ??
-            ConvertIdentifier(id, "#NAME?" , new Token.ErrorName  () ) ??
-            ConvertIdentifier(id, "#REF!"  , new Token.ErrorRef   () ) ??
-            ConvertIdentifier(id, "#VALUE!", new Token.ErrorValue () ) ??
-            ConvertIdentifier(id, "#DIV/0!", new Token.ErrorDiv0  () ) ??
-            ConvertIdentifier(id, "#NUM!"  , new Token.ErrorNum   () ) ??
-            ConvertIdentifier(id, "#CIRC!" , new Token.ErrorCirc  () ) ??
+            ConvertIdentifier(id, "TRUE"   , new Token.True          () ) ??
+            ConvertIdentifier(id, "FALSE"  , new Token.False         () ) ??
+            ConvertIdentifier(id, "#ERROR!", new Token.Error.Generic () ) ??
+            ConvertIdentifier(id, "#NAME?" , new Token.Error.Name    () ) ??
+            ConvertIdentifier(id, "#REF!"  , new Token.Error.Ref     () ) ??
+            ConvertIdentifier(id, "#VALUE!", new Token.Error.Value   () ) ??
+            ConvertIdentifier(id, "#DIV/0!", new Token.Error.Div0    () ) ??
+            ConvertIdentifier(id, "#NUM!"  , new Token.Error.Num     () ) ??
+            ConvertIdentifier(id, "#CIRC!" , new Token.Error.Circ    () ) ??
 
             identifierToken;
     }
@@ -504,7 +504,7 @@ public class Lexer
         };
 
     private bool IsIdentifier(char character)
-        => char.IsLetter(character);
+        => character >= 'A' && character <= 'Z';
 
     private bool IsAlpha(char character)
         => (character >= 'a' && character <= 'z')

@@ -1,7 +1,8 @@
 ﻿using Avalonia;
 using Avalonia.Styling;
 using Avalonia.Themes.Fluent;
-using MiniSheets.Core;
+using MiniSheets.Core.Formula;
+using MiniSheets.UI;
 
 namespace MiniSheets;
 

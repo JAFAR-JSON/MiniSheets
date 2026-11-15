@@ -1,4 +1,4 @@
-namespace MiniSheets.Core;
+namespace MiniSheets.Core.Formula;
 
 public abstract record Token
 {
@@ -12,15 +12,18 @@ public abstract record Token
         (int column, bool isColumnFixed, int row, bool isRowFixed) : Token;
 
     // Keywords
+    public abstract record Error : Token
+    {
+        public sealed record Generic () : Error;
+        public sealed record Name    () : Error;
+        public sealed record Ref     () : Error;
+        public sealed record Value   () : Error;
+        public sealed record Div0    () : Error;
+        public sealed record Num     () : Error;
+        public sealed record Circ    () : Error;
+    }
     public sealed record True       () : Token;
     public sealed record False      () : Token;
-    public sealed record ErrorError () : Token;
-    public sealed record ErrorName  () : Token;
-    public sealed record ErrorRef   () : Token;
-    public sealed record ErrorValue () : Token;
-    public sealed record ErrorDiv0  () : Token;
-    public sealed record ErrorNum   () : Token;
-    public sealed record ErrorCirc  () : Token;
     
     // Single character symbols
     public sealed record Percent          () : Token;

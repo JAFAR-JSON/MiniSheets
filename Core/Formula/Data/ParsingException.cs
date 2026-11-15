@@ -1,4 +1,4 @@
-namespace MiniSheets.Core;
+namespace MiniSheets.Core.Formula;
 // Source - https://stackoverflow.com/a/2200389
 // Posted by Frederik Gheysels, modified by community. See post 'Timeline' for change history
 // Retrieved 2026-11-14, License - CC BY-SA 3.0

@@ -1,4 +1,4 @@
-﻿using MiniSheets.Core;
+﻿using MiniSheets.Core.Formula;
 
 namespace MiniSheets.Tests;
 

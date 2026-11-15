@@ -5,7 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 
-namespace MiniSheets;
+namespace MiniSheets.UI;
 
 internal sealed class ToolBar : Border
 {
