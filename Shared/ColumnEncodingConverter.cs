@@ -32,7 +32,8 @@ static class ColumnEncodingConverter
                 return null;
             }
 
-            return convertedFirstChar * decodedZ + convertedLastChar;
+            // 'A' is 0, so the first letter needs a +1, otherwise "AA" would be the same as "A".
+            return (convertedFirstChar + 1) * decodedZ + convertedLastChar;
         }
         else
         {
@@ -42,17 +43,17 @@ static class ColumnEncodingConverter
 
     public static string? Encode(int decoded)
     {
-        if (1 <= decoded && decoded <= decodedZ)
+        if (0 <= decoded && decoded < decodedZ)
         {
             return GetColumnPositionChar(decoded).ToString();
         }
-        else if (decodedZ < decoded && decoded <= decodedZZ)
+        else if (decodedZ <= decoded && decoded < decodedZZ)
         {
             return new string
             (
                new char[]
                {
-                   GetColumnPositionChar(decoded / decodedZ),
+                   GetColumnPositionChar(decoded / decodedZ - 1),
                    GetColumnPositionChar(decoded % decodedZ)
                }
             );
