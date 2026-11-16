@@ -30,6 +30,8 @@ public class WorkbookSerializer
         }
     );
 
+    private readonly MsheetValidator _validator = new();
+
     public string Serialize(Workbook workbook)
     {
         // Index 0 is always the default style. The rest are added in the order the cells use them,
@@ -99,11 +101,24 @@ public class WorkbookSerializer
         return JsonSerializer.Serialize(file, _jsonContext.MsheetFile);
     }
 
+    // Throws a WorkbookFileException if the file is not valid, otherwise all the parsing below can't fail.
     public Workbook Deserialize(string json)
     {
-        // TODO: The file has to be checked before any of this, right now a bad file will just throw
-        // whatever exception the parsing throws.
-        MsheetFile file = JsonSerializer.Deserialize(json, _jsonContext.MsheetFile)!;
+        MsheetFile? file;
+        try
+        {
+            file = JsonSerializer.Deserialize(json, _jsonContext.MsheetFile);
+        }
+        catch (JsonException exception)
+        {
+            throw new WorkbookFileException("invalid JSON", exception);
+        }
+
+        if (file == null)
+        {
+            throw new WorkbookFileException("invalid JSON");
+        }
+        _validator.Validate(file);
 
         Workbook workbook = new Workbook(Guid.Parse(file.Id!));
         workbook.CreatedAt  = ParseDateText(file.CreatedAt!);
@@ -131,16 +146,10 @@ public class WorkbookSerializer
 
             foreach (KeyValuePair<string, MsheetCell> pair in msheetSheet.Cells ?? new())
             {
-                CellKey? cellKey = ToCellKey(pair.Key);
-                if (cellKey == null)
-                {
-                    continue; // TODO: Should reject the whole file, once the validation is added.
-                }
-
                 Cell cell = new Cell();
-                cell.Raw = pair.Value.Raw ?? "";
+                cell.Raw = pair.Value.Raw!;
                 cell.StyleId = pair.Value.Style ?? 0;
-                sheet.SetCell(cellKey.Value, cell);
+                sheet.SetCell(ToCellKey(pair.Key)!.Value, cell);
             }
 
             workbook.AddSheet(sheet);
@@ -204,7 +213,8 @@ public class WorkbookSerializer
         => ColumnEncodingConverter.Encode(cellKey.Column) + cellKey.Row.ToString(CultureInfo.InvariantCulture);
 
     // "A1" -> CellKey(0, 1), null if the address is not valid.
-    private static CellKey? ToCellKey(string address)
+    // Internal, since MsheetValidator uses it to check the cell keys.
+    internal static CellKey? ToCellKey(string address)
     {
         string letters = new string(address.TakeWhile(char.IsAsciiLetterUpper).ToArray());
         string digits  = address.Substring(letters.Length);
