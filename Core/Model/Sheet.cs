@@ -11,9 +11,9 @@ public class Sheet
     public Guid Id { get; } = Guid.NewGuid();
     public string Name { get; set; } = "";
 
-    private readonly Dictionary<CellKey, Cell> _cells   { get; set; } = new();
-    private readonly Dictionary<int, int> _columnWidths { get; set; } = new(); // NOT_SPECIFICATION: The names of these fields.
-    private readonly Dictionary<int, int> _rowHeights   { get; set; } = new(); // NOT_SPECIFICATION: The names of these fields.
+    private readonly Dictionary<CellKey, Cell> _cells   = new();
+    private readonly Dictionary<int, int> _columnWidths = new(); // NOT_SPECIFICATION: The names of these fields.
+    private readonly Dictionary<int, int> _rowHeights   = new(); // NOT_SPECIFICATION: The names of these fields.
 
     public Sheet() { }
     public Sheet(string name) { this.Name = name; }

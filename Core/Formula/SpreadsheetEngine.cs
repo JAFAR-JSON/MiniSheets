@@ -1,5 +1,5 @@
 using MiniSheets.Core.Model;
-using MiniSheets.Core.Shared;
+using MiniSheets.Shared;
 
 namespace MiniSheets.Core.Formula;
 
