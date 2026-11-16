@@ -11,6 +11,7 @@ public class FormulaBar : Border
 
     private readonly TextBox _formulaTextBox;
     private readonly TextBox _nameBox;
+    private bool _updatingFromSelection;
 
     public event EventHandler<string>? ChangeGridCellContent;
     public event EventHandler? EnterPressed;
@@ -28,26 +29,30 @@ public class FormulaBar : Border
         {
             if (e.Key == Avalonia.Input.Key.Enter)
             {
-                var cellName = _nameBox.Text ?? string.Empty;
-                var firstChar = cellName.Length > 0 ? cellName[0] : '\0';
-                var secondChar = cellName.Length > 1 ? cellName[1] : '\0';
-                var restOfCellName = cellName.Length > 1 ? cellName.Substring(1) : string.Empty;
-                Console.WriteLine($"GoToCell event triggered with: {firstChar}, {secondChar}, {restOfCellName}");
-                if (char.IsLetter(firstChar) && char.IsDigit(secondChar) && !string.IsNullOrEmpty(restOfCellName) && int.TryParse(restOfCellName, out var rowNumber) && rowNumber > 0 && rowNumber <= 10000)
+                var cellName = (_nameBox.Text ?? string.Empty).Trim();
+                var separator = 0;
+                while (separator < cellName.Length && char.IsLetter(cellName[separator]))
+                    separator++;
+
+                var columnName = cellName[..separator];
+                var rowName = cellName[separator..];
+                if (columnName.Length > 0 &&
+                    int.TryParse(rowName, out var rowNumber) &&
+                    rowNumber > 0 &&
+                    rowNumber <= 10000)
                 {
-                    //Console.WriteLine($"GoToCell event triggered with: {firstChar}, {rowNumber}");
-                    GoToCell?.Invoke(this, (firstChar.ToString(), rowNumber.ToString()));
+                    GoToCell?.Invoke(this, (columnName, rowName));
                 }
-                else if (char.IsLetter(firstChar) && char.IsLetter(secondChar) && !string.IsNullOrEmpty(restOfCellName) && int.TryParse(restOfCellName, out var rowNumber2) && rowNumber2 > 0 && rowNumber2 <= 10000)
-                {
-                    GoToCell?.Invoke(this, ((firstChar + secondChar).ToString(), rowNumber2.ToString()));
-                }
+
                 e.Handled = true;
             }
         };
 
         _formulaTextBox.TextChanged += (_, _) =>
         {
+            if (_updatingFromSelection)
+                return;
+
             if (_formulaTextBox is TextBox formulaTextBox)
             {
                 var text = formulaTextBox.Text ?? string.Empty;
@@ -104,14 +109,18 @@ public class FormulaBar : Border
 
     public void SetSelectedCell(string cellName, string text)
     {
-        if (_nameBox.Text != cellName)
+        _updatingFromSelection = true;
+        try
         {
-            _nameBox.Text = cellName;
-        }
+            if (_nameBox.Text != cellName)
+                _nameBox.Text = cellName;
 
-        if (_formulaTextBox.Text != text)
+            if (_formulaTextBox.Text != text)
+                _formulaTextBox.Text = text;
+        }
+        finally
         {
-            _formulaTextBox.Text = text;
+            _updatingFromSelection = false;
         }
     }
 

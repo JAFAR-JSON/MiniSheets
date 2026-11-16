@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls.Primitives;
 using Avalonia.Styling;
 using Avalonia.Input;
+using Avalonia.Threading;
 using MiniSheets.Core.Model;
 
 namespace MiniSheets.UI;
@@ -57,7 +58,7 @@ internal class GridView : Border
                     )
                 )
             ),
-            RowDefinitions = new RowDefinitions(string.Join(", ", Enumerable.Repeat(CellHeight.ToString(), InitialRows + 1))),
+            RowDefinitions = CreateInitialRowDefinitions(),
             ColumnSpacing = 0,
             RowSpacing = 0
         };
@@ -77,6 +78,20 @@ internal class GridView : Border
         CreateInitialRows();
     }
 
+    private static RowDefinitions CreateInitialRowDefinitions()
+    {
+        var rowDefinitions = new RowDefinitions
+        {
+            new RowDefinition(new GridLength(CellHeight))
+        };
+
+        for (var row = 0; row < InitialRows; row++)
+            rowDefinitions.Add(new RowDefinition(new GridLength(CellHeight)));
+
+        return rowDefinitions;
+    }
+
+    // Add a cell to the grid if it is not already visible
     private void AddVisibleCell(int row, int column)
     {
         var key = new CellKey(row, column);
@@ -90,6 +105,7 @@ internal class GridView : Border
         _visibleCells.Add(key, cell);
     }
 
+    // Remove a cell from the grid if it not visible anymore
     private void RemoveVisibleCell(CellKey key)
     {
         if (!_visibleCells.TryGetValue(key, out var cell))
@@ -112,8 +128,6 @@ internal class GridView : Border
                 new RowDefinition(new GridLength(CellHeight))
             );
 
-            CreateRow(rowIndex);
-
             _renderedRows++;
         }
     }
@@ -134,7 +148,7 @@ internal class GridView : Border
         }
     }
 
-    // Removes rows that are not longer visible completely
+    // Removes columns that are not longer visible completely
     private void RemoveColumnsTo(int columnCount)
     {
         columnCount = Math.Max(InitialColumns, columnCount);
@@ -262,6 +276,7 @@ internal class GridView : Border
             textBox.Focus();
             textBox.CaretIndex = textBox.Text?.Length ?? 0;
             textBox.LostFocus += (_, _) => FinishEditing();
+            textBox.TextChanged += (_, _) => NotifySelectedCellChanged(cell);
             textBox.KeyDown += (_, keyEvent) =>
             {
                 if (IsNavigationKey(keyEvent.Key))
@@ -274,18 +289,14 @@ internal class GridView : Border
                     textBox.Text = "";
                     keyEvent.Handled = true;
                 }
-                else
-                {
-                    NotifySelectedCellChanged(cell);
-                }
             };
             e.Handled = true;
         };
 
         Grid.SetRow(cell, rowIndex + 1);
         Grid.SetColumn(cell, columnIndex);
-        Canvas.SetLeft(cell, 40 + ((columnIndex - 1) * CellWidth));
-        Canvas.SetTop(cell, CellHeight + (rowIndex * CellHeight));
+        //Canvas.SetLeft(cell, 40 + ((columnIndex - 1) * CellWidth));
+        //Canvas.SetTop(cell, CellHeight + (rowIndex * CellHeight));
         return cell;
     }
 
@@ -306,8 +317,6 @@ internal class GridView : Border
         var requiredColumns = (int)Math.Ceiling(
             (_scrollViewer.Offset.X + _scrollViewer.Viewport.Width - 40) / CellWidth)
             + ScrollBuffer;
-
-        Console.WriteLine($"Scroll changed: requiredRows={requiredRows}, requiredColumns={requiredColumns}");
 
         if (requiredRows > MaxRows)
             requiredRows = MaxRows;
@@ -446,7 +455,6 @@ internal class GridView : Border
         Grid.SetColumn(numberedCell, 0);
 
         _grid.Children.Add(numberedCell);
-
         if (rowIndex < InitialRows)
         {
             for (int cellIndex = 1; cellIndex <= _renderedColumns; cellIndex++)
@@ -591,7 +599,13 @@ internal class GridView : Border
                 return;
         }
 
-        SelectCellAt(targetRow, targetColumn);
+        var nextCell = GetCell(targetRow, targetColumn);
+
+        if (nextCell != null)
+        {
+            CellClicked(nextCell);
+            nextCell.Focus();
+        }
     }
 
     private void SelectCellAt(int row, int column)
@@ -603,31 +617,45 @@ internal class GridView : Border
 
         var targetOffsetX = Math.Max(0, (column - 1) * CellWidth - 40);
         var targetOffsetY = Math.Max(0, row * CellHeight);
-        Console.WriteLine($"Scrolling to: OffsetX={targetOffsetX}, OffsetY={targetOffsetY}, Row={row}, Column={column}");
 
-        _scrollViewer.Offset = new Vector(targetOffsetX, targetOffsetY);
-        Console.WriteLine($"ScrollViewer Offset after setting: {_scrollViewer.Offset.X}, {_scrollViewer.Offset.Y}");
-        OnScrollChanged();
-        VirtualizeVisibleCells();
+        Dispatcher.UIThread.Post(() =>
+        {
+            _scrollViewer.Offset = new Vector(targetOffsetX, targetOffsetY);
 
-        var cell = GetCell(row, column);
-        if (cell == null)
-            return;
+            Dispatcher.UIThread.Post(() =>
+            {
+                VirtualizeVisibleCells();
 
-        CellClicked(cell);
-        cell.Focus();
+                var cell = GetCell(row, column);
+
+                if (cell == null)
+                {
+                    CreateRow(row);
+                    AddVisibleCell(row, column);
+                    cell = GetCell(row, column);
+                }
+
+                if (cell == null)
+                    return;
+
+                CellClicked(cell);
+                cell.Focus();
+
+            }, DispatcherPriority.Render);
+        }, DispatcherPriority.Render);
     }
 
     private void EnsureRenderedThrough(int row, int column)
     {
         _isUpdatingScroll = true;
+
         try
         {
-            while (_renderedRows <= row)
-                   AddRows(Math.Min(BatchSize, row - _renderedRows + 1));
+            if (_renderedRows <= row)
+                AddRows(row + 1 - _renderedRows);
 
-            while (_renderedColumns < column)
-                AddColumns(Math.Min(BatchSize, column - _renderedColumns));
+            if (_renderedColumns < column)
+                AddColumns(column - _renderedColumns);
         }
         finally
         {
@@ -746,7 +774,6 @@ internal class GridView : Border
         int column = ColumnNameToIndex(columnName);
         if (column < 1 || column > MaxColumns)
             return;
-        Console.WriteLine($"Going to cell: {columnName}{row}");
         SelectCellAt(row - 1, column);
     }
 
