@@ -3,6 +3,9 @@ using Avalonia.Media;
 using Avalonia.Layout;
 using Avalonia;
 using Avalonia.Styling;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using MiniSheets.State;
 
 namespace MiniSheets.UI;
 
@@ -25,9 +28,14 @@ public class FormulaBar : Border
         _formulaTextBox = CreateFormulaTextBox();
         _nameBox = CreateNameBox();
 
-        _nameBox.KeyDown += (_, e) =>
+        _nameBox.AddHandler(KeyDownEvent, (_, e) =>
         {
-            if (e.Key == Avalonia.Input.Key.Enter)
+            if (HandleClipboardShortcut(_nameBox, e))
+            {
+                return;
+            }
+
+            if (e.Key == Key.Enter)
             {
                 var cellName = (_nameBox.Text ?? string.Empty).Trim();
                 var separator = 0;
@@ -46,7 +54,7 @@ public class FormulaBar : Border
 
                 e.Handled = true;
             }
-        };
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
 
         _formulaTextBox.TextChanged += (_, _) =>
         {
@@ -61,14 +69,19 @@ public class FormulaBar : Border
             }
         };
 
-        _formulaTextBox.KeyDown += (_, e) =>
+        _formulaTextBox.AddHandler(KeyDownEvent, (_, e) =>
         {
-            if (e.Key == Avalonia.Input.Key.Enter)
+            if (HandleClipboardShortcut(_formulaTextBox, e))
+            {
+                return;
+            }
+
+            if (e.Key == Key.Enter)
             {
                 EnterPressed?.Invoke(this, EventArgs.Empty);
                 e.Handled = true;
             }
-        };
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
 
         Grid.SetColumn(_nameBox, 0);
         Grid.SetColumn(functionLabel, 2);
@@ -85,6 +98,33 @@ public class FormulaBar : Border
                 _formulaTextBox
             }
         };
+    }
+
+    private static bool HandleClipboardShortcut(TextBox textBox, KeyEventArgs keyEvent)
+    {
+        if ((keyEvent.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) == 0)
+            return false;
+
+        if (keyEvent.Key == Key.C)
+        {
+            _ = Clipboard.CopyAsync(textBox.Text ?? string.Empty);
+            keyEvent.Handled = true;
+            return true;
+        }
+
+        if (keyEvent.Key == Key.V)
+        {
+            _ = PasteTextAsync(textBox);
+            keyEvent.Handled = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static async Task PasteTextAsync(TextBox textBox)
+    {
+        textBox.Text = await Clipboard.PasteAsync();
     }
 
     private TextBox CreateNameBox()

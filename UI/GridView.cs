@@ -5,8 +5,11 @@ using Avalonia;
 using Avalonia.Controls.Primitives;
 using Avalonia.Styling;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using MiniSheets.Core.Model;
+using MiniSheets.State;
 
 namespace MiniSheets.UI;
 
@@ -39,6 +42,7 @@ internal class GridView : Border
     private Border? _selectedCell;
     private TextBox? _activeTextBox;
     private Border? _editingCell;
+    private bool _isHandlingNavigation;
 
     private readonly List<Border> _highlightedCells = new();
 
@@ -245,59 +249,86 @@ internal class GridView : Border
             e.Handled = true;
         };
 
-        cell.KeyDown += (_, e) =>
+        cell.AddHandler(KeyDownEvent, (_, e) =>
         {
             if (e.Source == cell && IsNavigationKey(e.Key))
             {
-                EnterOrArrowPressedOnCell(rowIndex, columnIndex, e.Key);
+                e.Handled = HandleNavigationKey(rowIndex, columnIndex, e);
+            }
+            else if (e.Source == cell && e.Key == Key.F2)
+            {
+                EditMode(cell, rowIndex, columnIndex);
                 e.Handled = true;
             }
-        };
+            else if (e.Key == Key.C && IsControlPressed(e))
+            {
+                _ = CopyToClipboard(GetCellText(cell));
+                e.Handled = true;
+            }
+            else if (e.Key == Key.V && IsControlPressed(e))
+            {
+                _ = PasteFromClipboard();
+                e.Handled = true;
+            }
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
 
         cell.DoubleTapped += (_, e) =>
         {
-            if (_activeTextBox != null)
-                return;
-
-            var textBox = new TextBox
-            {
-                Text = (cell.Child as TextBlock)?.Text ?? "",
-                FontSize = 14,
-                Foreground = new SolidColorBrush(Color.Parse("#374151")),
-                BorderThickness = new Thickness(0),
-                CornerRadius = new CornerRadius(0),
-                VerticalContentAlignment = VerticalAlignment.Center,
-                Styles = { CreateTextBoxFocusStyle() }
-            };
-
-            cell.Child = textBox;
-            _activeTextBox = textBox;
-            _editingCell = cell;
-            textBox.Focus();
-            textBox.CaretIndex = textBox.Text?.Length ?? 0;
-            textBox.LostFocus += (_, _) => FinishEditing();
-            textBox.TextChanged += (_, _) => NotifySelectedCellChanged(cell);
-            textBox.KeyDown += (_, keyEvent) =>
-            {
-                if (IsNavigationKey(keyEvent.Key))
-                {
-                    EnterOrArrowPressedOnCell(rowIndex, columnIndex, keyEvent.Key);
-                    keyEvent.Handled = true;
-                }
-                else if (keyEvent.Key == Key.Escape)
-                {
-                    textBox.Text = "";
-                    keyEvent.Handled = true;
-                }
-            };
+            EditMode(cell, rowIndex, columnIndex);
             e.Handled = true;
         };
 
         Grid.SetRow(cell, rowIndex + 1);
         Grid.SetColumn(cell, columnIndex);
-        //Canvas.SetLeft(cell, 40 + ((columnIndex - 1) * CellWidth));
-        //Canvas.SetTop(cell, CellHeight + (rowIndex * CellHeight));
         return cell;
+    }
+
+    private void EditMode(Border cell, int rowIndex, int columnIndex)
+    {
+        if (_activeTextBox != null)
+                return;
+
+        var textBox = new TextBox
+        {
+            Text = (cell.Child as TextBlock)?.Text ?? "",
+            FontSize = 14,
+            Foreground = new SolidColorBrush(Color.Parse("#374151")),
+            BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(0),
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Styles = { CreateTextBoxFocusStyle() }
+        };
+
+        cell.Child = textBox;
+        _activeTextBox = textBox;
+        _editingCell = cell;
+        textBox.Focus();
+        textBox.CaretIndex = textBox.Text?.Length ?? 0;
+        textBox.LostFocus += (_, _) => FinishEditing();
+        textBox.TextChanged += (_, _) => NotifySelectedCellChanged(cell);
+        textBox.AddHandler(KeyDownEvent, (_, keyEvent) =>
+        {
+            if (IsNavigationKey(keyEvent.Key))
+            {
+                keyEvent.Handled = HandleNavigationKey(rowIndex, columnIndex, keyEvent);
+            }
+            else if (keyEvent.Key == Key.Escape)
+            {
+                textBox.Text = "";
+                FinishEditing();
+                keyEvent.Handled = true;
+            }
+            else if (keyEvent.Key == Key.C && IsControlPressed(keyEvent))
+            {
+                _ = CopyToClipboard(textBox.Text ?? string.Empty);
+                keyEvent.Handled = true;
+            }
+            else if (keyEvent.Key == Key.V && IsControlPressed(keyEvent))
+            {
+                _ = PasteFromClipboard();
+                keyEvent.Handled = true;
+            }
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
     }
 
     private void OnScrollChanged()
@@ -505,6 +536,10 @@ internal class GridView : Border
     {
         if (_selectedCell != null)
         {
+            _sheet.GetCell(new CellKey(
+                Grid.GetRow(_selectedCell) - 1,
+                Grid.GetColumn(_selectedCell))).Raw = text;
+
             if (_selectedCell.Child is TextBlock textBlock)
             {
                 textBlock.Text = text;
@@ -518,7 +553,40 @@ internal class GridView : Border
 
     private static bool IsNavigationKey(Key key)
     {
-        return key is Key.Enter or Key.Left or Key.Right or Key.Up or Key.Down;
+        return key is Key.Enter or Key.Left or Key.Right or Key.Up or Key.Down or Key.Tab;
+    }
+
+    private static bool IsControlPressed(KeyEventArgs keyEvent)
+    {
+        return (keyEvent.KeyModifiers & KeyModifiers.Control) != 0;
+    }
+
+    private static string GetCellText(Border cell)
+    {
+        return (cell.Child as TextBlock)?.Text
+               ?? (cell.Child as TextBox)?.Text
+               ?? string.Empty;
+    }
+
+    private bool HandleNavigationKey(int currentRow, int currentColumn, KeyEventArgs keyEvent)
+    {
+        if (_isHandlingNavigation)
+            return true;
+
+        _isHandlingNavigation = true;
+        try
+        {
+            EnterOrArrowPressedOnCell(
+                currentRow,
+                currentColumn,
+                keyEvent.Key,
+                (keyEvent.KeyModifiers & KeyModifiers.Shift) != 0);
+            return true;
+        }
+        finally
+        {
+            _isHandlingNavigation = false;
+        }
     }
 
     private void CellClicked(Border cellBorder)
@@ -562,7 +630,7 @@ internal class GridView : Border
 
         SelectedCellChanged?.Invoke(this, (cellName, text));
     }
-    
+
     public void MoveDownToNextCell()
     {
         if (_selectedCell == null)
@@ -571,18 +639,50 @@ internal class GridView : Border
         var currentRow = Grid.GetRow(_selectedCell) - 1;
         var currentColumn = Grid.GetColumn(_selectedCell);
 
-        EnterOrArrowPressedOnCell(currentRow, currentColumn, Key.Enter);
+        EnterOrArrowPressedOnCell(currentRow, currentColumn, Key.Enter, false);
     }
 
-    private void EnterOrArrowPressedOnCell(int currentRow, int currentColumn, Key key)
+    private async Task CopyToClipboard(string text)
     {
-        FinishEditing();
+        await Clipboard.CopyAsync(text);
+    }
 
+    private async Task PasteFromClipboard()
+    {
+        UpdateSelectedCellContent(await Clipboard.PasteAsync());
+    }
+
+    private void EnterOrArrowPressedOnCell(
+        int currentRow,
+        int currentColumn,
+        Key key,
+        bool shiftPressed)
+    {
         var targetRow = currentRow;
         var targetColumn = currentColumn;
 
         switch (key)
         {
+            case Key.Tab:
+                if (!shiftPressed && currentColumn < _renderedColumns)
+                {
+                    targetColumn++;
+                }
+                else if (shiftPressed && currentColumn > 1)
+                {
+                    targetColumn--;
+                }
+                else if (!shiftPressed)
+                {
+                    targetColumn = 1;
+                    targetRow++;
+                }
+                else
+                {
+                    targetColumn = _renderedColumns;
+                    targetRow--;
+                }
+                break;
             case Key.Left when currentColumn > 1:
                 targetColumn--;
                 break;
@@ -592,12 +692,20 @@ internal class GridView : Border
             case Key.Up when currentRow > 0:
                 targetRow--;
                 break;
-            case Key.Down or Key.Enter when currentRow < _renderedRows - 1:
+            case Key.Down when currentRow < _renderedRows - 1:
                 targetRow++;
+                break;
+            case Key.Enter when !shiftPressed && currentRow < _renderedRows - 1:
+                targetRow++;
+                break;
+            case Key.Enter when shiftPressed && currentRow > 0:
+                targetRow--;
                 break;
             default:
                 return;
         }
+
+        FinishEditing();
 
         var nextCell = GetCell(targetRow, targetColumn);
 
