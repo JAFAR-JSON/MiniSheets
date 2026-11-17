@@ -14,11 +14,11 @@ public abstract record Expr
         public sealed record Number(string Value) : Primary;
         public sealed record Error(string Value) : Primary;
         public sealed record Cell
-            (int column, bool isColumnFixed, int row, bool isRowFixed) : Primary;
+            (int Column, bool isColumnFixed, int Row, bool isRowFixed) : Primary;
     }
 
-    public sealed record Unary(UnaryExprOperator op, Expr body) : Expr;
-    public sealed record Binary(BinaryExprOperator op, Expr left, Expr right) : Expr;
+    public sealed record Unary(UnaryExprOperator Op, Expr Body) : Expr;
+    public sealed record Binary(BinaryExprOperator Op, Expr Left, Expr Right) : Expr;
 
     // // Literals
     // public sealed record Identifier(string identifier) : ASTNode;

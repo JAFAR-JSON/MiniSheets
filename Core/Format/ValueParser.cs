@@ -21,12 +21,12 @@ public class ValueParser
         _parser = parser;
     }
 
-    public Expr ParseValue(string text)
+    public Expr? ParseValue(string text)
     {
         return ParseValue(CellFormat.General, text);
     }
 
-    public Expr ParseValue(CellFormat format, string text)
+    public Expr? ParseValue(CellFormat format, string text)
     {
         if (text.Length >= 1 && text[0] == '\'')
         {
@@ -135,6 +135,8 @@ public class ValueParser
         }
     }
 
+    // TODO: Handle the case where if a Cell's style is General,
+    // then set it to Currency with 2 decimal places.
     public Expr? HandleCurrency(string text)
     {
         var currencyStrings =
@@ -202,8 +204,6 @@ public class ValueParser
         }
     }
 
-    // TODO: Handle the case where if a Cell's style is General,
-    // then set it to Currency with 2 decimal places.
     public Expr? HandleDate(string text)
     {
         text = text.Trim();

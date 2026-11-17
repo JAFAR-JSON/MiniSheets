@@ -11,32 +11,30 @@ public class Sheet
     public Guid Id { get; } = Guid.NewGuid();
     public string Name { get; set; } = "";
 
-    private readonly Dictionary<CellKey, Cell> _cells   { get; set; } = new();
-    private readonly Dictionary<int, int> _columnWidths { get; set; } = new(); // NOT_SPECIFICATION: The names of these fields.
-    private readonly Dictionary<int, int> _rowHeights   { get; set; } = new(); // NOT_SPECIFICATION: The names of these fields.
+    public Dictionary<CellKey, Cell> Cells   { get; } = new();
+    public Dictionary<int, int> ColumnWidths { get; } = new(); // NOT_SPECIFICATION: The names of these fields.
+    public Dictionary<int, int> RowHeights   { get; } = new(); // NOT_SPECIFICATION: The names of these fields.
 
     public Sheet() { }
     public Sheet(string name) { this.Name = name; }
 
     public Cell GetCell(CellKey cellKey)
     {
-        if (_cells.TryGetValue(cellKey, out Cell cell))
+        if (Cells.TryGetValue(cellKey, out Cell? cell) && cell is not null)
         {
             return cell;
         }
-        else
-        {
-            Cell newCell = new Cell();
-            _cells[cellKey] = newCell;
-            return newCell;
-        }
+
+        Cell newCell = new Cell();
+        Cells[cellKey] = newCell;
+        return newCell;
     }
 
     public int GetFarthestInitializedColumn
     {
         get
         {
-            return _cells.Keys
+            return Cells.Keys
                 .Select(key => key.Column)
                 .DefaultIfEmpty(0)
                 .Max();
@@ -47,7 +45,7 @@ public class Sheet
     {
         get
         {
-            return _cells.Keys
+            return Cells.Keys
                 .Select(key => key.Row)
                 .DefaultIfEmpty(0)
                 .Max();
