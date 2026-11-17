@@ -42,14 +42,14 @@ public class DependencyGraph<ValueType> where ValueType : notnull
         }
     }
 
-    public void Add(ValueType obj, IEnumerable<ValueType> dependencies)
+    public void Add(ValueType obj, List<ValueType> dependencies)
     {
         foreach (var dependency in dependencies) Add(obj, dependency);
     }
 
     public void Add(ValueType obj, params ValueType[] dependencies)
     {
-        Add(obj, dependencies as IEnumerable<ValueType>);
+        Add(obj, dependencies as List<ValueType>);
     }
 
     public bool NodeExists(ValueType obj)
@@ -96,7 +96,7 @@ public class DependencyGraph<ValueType> where ValueType : notnull
     /// 1. The first tuple element returns successfully sorted elements.
     /// 2. The second element contains things that could not be resolved.
     /// </summary>
-    public Tuple<IEnumerable<ValueType>, IEnumerable<ValueType>> Sort()
+    public Tuple<List<ValueType>, List<ValueType>> Sort()
     {
         List<ValueType> sorted = new List<ValueType>(), cycled = new List<ValueType>();
         var map = _map.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
@@ -112,7 +112,7 @@ public class DependencyGraph<ValueType> where ValueType : notnull
 
         cycled.AddRange(map.Where(kvp => kvp.Value.Dependencies != 0).Select(kvp => kvp.Key));
 
-        return new Tuple<IEnumerable<ValueType>, IEnumerable<ValueType>>(sorted, cycled);
+        return new Tuple<List<ValueType>, List<ValueType>>(sorted, cycled);
     }
 
     public void Clear()

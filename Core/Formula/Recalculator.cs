@@ -50,10 +50,8 @@ public class Recalculator
         dependencyGraph.Add(cellKey, dependencies);
     }
 
-    private IEnumerable<CellKey> GetDependencies(Expr AST)
+    private List<CellKey> GetDependencies(Expr AST)
     {
-        List<CellKey> dependencies = new();
-
         // TODO: Maybe recursion isn't the best thing way to do things here (in terms of performance).
         switch (AST)
         {
