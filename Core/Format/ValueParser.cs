@@ -21,12 +21,12 @@ public class ValueParser
         _parser = parser;
     }
 
-    public Expr? ParseValue(string text)
+    public Expr ParseValue(string text)
     {
         return ParseValue(CellFormat.General, text);
     }
 
-    public Expr? ParseValue(CellFormat format, string text)
+    public Expr ParseValue(CellFormat format, string text)
     {
         if (text.Length >= 1 && text[0] == '\'')
         {
@@ -95,7 +95,7 @@ public class ValueParser
             CellFormat.Number   => HandleNumber  (text),
             CellFormat.Currency => HandleCurrency(text),
             CellFormat.Date     => HandleDate    (text),
-            _ => null
+            _ => new Expr.Literal(new CellValue.Error("#VALUE!")).
         };
     }
 
