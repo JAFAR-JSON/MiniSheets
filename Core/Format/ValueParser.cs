@@ -92,12 +92,15 @@ public class ValueParser
 
             CellFormat.Text => new Expr.Literal(new CellValue.Text(text)),
 
-            CellFormat.Number   => HandleNumber  (text),
-            CellFormat.Currency => HandleCurrency(text),
-            CellFormat.Date     => HandleDate    (text),
-            _ => new Expr.Literal(new CellValue.Error("#VALUE!")).
+            CellFormat.Number   => HandleNumber  (text) ?? ReturnError(),
+            CellFormat.Currency => HandleCurrency(text) ?? ReturnError(),
+            CellFormat.Date     => HandleDate    (text) ?? ReturnError(),
+            _ => ReturnError()
         };
     }
+
+    private Expr ReturnError()
+        => new Expr.Literal(new CellValue.Error("#VALUE!"));
 
     public Expr? HandleBoolean(string text)
     {

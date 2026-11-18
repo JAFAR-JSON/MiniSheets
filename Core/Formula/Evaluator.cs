@@ -26,19 +26,27 @@ public class Evaluator
             // case Expr.Primary.Function e: return EvaluateFunction(e);
             case Expr.Primary.Identifier e: return EvaluateFunction(sheetId, e);
             case Expr.Primary.Text   e: return new CellValue.Text(e.Value);
-            case Expr.Primary.Number e: return new CellValue.Numeric(e.Value);
+            case Expr.Primary.Number e: return EvaluateNumber(sheetId, e);
             case Expr.Primary.Error  e: return new CellValue.Error(e.Value);
             case Expr.Primary.Cell   e:
                 return _cellValueGetter.GetCellValue(sheetId, new CellKey(e.Column, e.Row));
         }
+
+        throw new UnreachableException();
     }
 
-    private CellValue EvaluateUnary(Guid sheetId, Expr expr)
+    private CellValue EvaluateNumber(Guid sheetId, Expr.Primary.Number expr)
     {
-        return Evaluate(expr);
+        // return new CellValue.Number(e.Value);
+        throw new UnreachableException();
     }
 
-    private CellValue EvaluateBinary(Guid sheetId, Expr expr)
+    private CellValue EvaluateUnary(Guid sheetId, Expr.Unary expr)
+    {
+        return Evaluate(sheetId, expr.Body);
+    }
+
+    private CellValue EvaluateBinary(Guid sheetId, Expr.Binary expr)
     {
         Expr  left = expr.Left;
         Expr right = expr.Right;

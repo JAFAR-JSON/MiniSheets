@@ -3,7 +3,7 @@ namespace MiniSheets.Core.Model;
 public class Workbook
 {
     public Guid Id { get; } = Guid.NewGuid();
-    public int Sheets => sheets.Count;
+    public int SheetCount => Sheets.Count;
     public List<Guid> SheetIds { get; } = new();
     public Dictionary<Guid, Sheet>    Sheets { get; } = new();
     public Dictionary<int, CellStyle> Styles { get; } = new();

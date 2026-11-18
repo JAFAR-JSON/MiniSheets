@@ -72,7 +72,7 @@ public class DependencyGraph<ValueType> where ValueType : notnull
             return _map[obj].Dependents.ToArray();
         }
 
-        return new[] {};
+        return new ValueType[0];
     }
 
     public void RemoveDependency(ValueType obj, ValueType dependency)
@@ -85,7 +85,7 @@ public class DependencyGraph<ValueType> where ValueType : notnull
 
     public void RemoveAllDependencies(ValueType obj)
     {
-        for (var dependency in GetDependencies(obj))
+        foreach (var dependency in GetDependencies(obj))
         {
             RemoveDependency(obj, dependency);
         }

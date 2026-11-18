@@ -13,7 +13,7 @@ public class CellValueGetter
         _workbook = workbook;
     }
 
-    public CellKey GetCellValue(Guid sheetId, CellKey cellKey)
+    public CellValue GetCellValue(Guid sheetId, CellKey cellKey)
     {
         return _workbook.Sheets[sheetId].GetCell(cellKey).Value;
     }

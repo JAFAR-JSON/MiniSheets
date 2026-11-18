@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using MiniSheets.Core.Model;
 using MiniSheets.Core.Formula;
 
 namespace MiniSheets.Core.Format;
@@ -12,7 +13,7 @@ public class ValueFormatter
         _styleManager = styleManager;
     }
 
-    public string Format(CellStyle style, CellValue cellValue)
+    public string Format(CellValue cellValue)
     {
         throw new UnreachableException();
     }

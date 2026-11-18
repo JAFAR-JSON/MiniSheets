@@ -1,5 +1,7 @@
-using MiniSheets.Core.Model;
+using System.Diagnostics;
 using MiniSheets.Shared;
+using MiniSheets.Core.Model;
+using MiniSheets.Core.Format;
 
 namespace MiniSheets.Core.Formula;
 
@@ -34,9 +36,9 @@ public class SpreadsheetEngine
             Sheet sheet = kpv.Value;
 
             // Parse workbook.
-            foreach (CellKey cellKey in sheet.Cells)
+            foreach (var cellKpv in sheet.Cells)
             {
-                Cell cell = sheet[cellKey];
+                Cell cell = cellKpv.Value;
                 cell.Ast = _valueParser.ParseValue(cell.Raw);
             }
 
@@ -45,9 +47,14 @@ public class SpreadsheetEngine
 
             // Evaluate every dependency in order.
             List<CellKey> cellKeys = _recalculator.CalculateSheet(sheetId);
-            for (CellKey cellKey in cellKeys)
+            foreach (CellKey cellKey in cellKeys)
             {
-                _evaluator.Evaluate(sheetId, sheet.GetCell(cellKey));
+                Cell cell  = sheet.GetCell(cellKey);
+                if (cell.Ast is null)
+                {
+                    throw new UnreachableException();
+                }
+                cell.Value = _evaluator.Evaluate(sheetId, cell.Ast);
             }
         }
     }
@@ -64,7 +71,7 @@ public class SpreadsheetEngine
 
     public void SetCellText(Guid sheetId, CellKey cellKey, string text)
     {
-        Sheet sheet = _workbook.sheets[sheetId];
+        Sheet sheet = _workbook.Sheets[sheetId];
         Cell  cell  = sheet.GetCell(cellKey);
 
         cell.Raw = text;
@@ -72,9 +79,14 @@ public class SpreadsheetEngine
 
         // Evaluate every dependency in order.
         List<CellKey> cellKeys = _recalculator.RecalculateCell(sheetId, cellKey);
-        for (CellKey cellKey in cellKeys)
+        foreach (CellKey recalculatedCellKey in cellKeys)
         {
-            _evaluator.Evaluate(sheetId, sheet.GetCell(cellKey));
+            Cell recalculatedCell = sheet.GetCell(recalculatedCellKey);
+            if (recalculatedCell.Ast is null)
+            {
+                throw new UnreachableException();
+            }
+            _evaluator.Evaluate(sheetId, recalculatedCell.Ast);
         }
     }
 
