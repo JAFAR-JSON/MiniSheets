@@ -11,7 +11,6 @@ public class SpreadsheetEngine
     private readonly Workbook _workbook;
     private readonly Recalculator _recalculator;
     // private readonly FunctionRegistry _functionRegistry;
-    private readonly CellValueGetter _cellValueGetter;
     private readonly StyleManager _styleManager;
     private readonly Evaluator _evaluator;
     private readonly Parser _parser;
@@ -22,9 +21,8 @@ public class SpreadsheetEngine
     {
         _workbook = workbook;
         _recalculator = new Recalculator(_workbook);
-        _cellValueGetter = new CellValueGetter(_workbook);
         _styleManager = new StyleManager(_workbook);
-        _evaluator = new Evaluator(_cellValueGetter, _styleManager);
+        _evaluator = new Evaluator(_workbook, _styleManager);
         _parser = new Parser();
         _valueParser = new ValueParser(_parser);
         _valueFormatter = new ValueFormatter(_styleManager);
@@ -90,14 +88,14 @@ public class SpreadsheetEngine
         }
     }
 
-    public string GetCellText(int sheetIndex, CellKey cellKey)
+    public string GetFormattedCellText(int sheetIndex, CellKey cellKey)
     {
         Guid sheetId = _workbook.SheetIds[sheetIndex];
 
-        return GetCellText(sheetId, cellKey);
+        return GetFormattedCellText(sheetId, cellKey);
     }
 
-    public string GetCellText(Guid sheetId, CellKey cellKey)
+    public string GetFormattedCellText(Guid sheetId, CellKey cellKey)
     {
         Sheet sheet = _workbook.Sheets[sheetId];
         Cell cell = sheet.GetCell(cellKey);

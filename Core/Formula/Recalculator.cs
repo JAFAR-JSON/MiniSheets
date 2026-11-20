@@ -65,18 +65,18 @@ public class Recalculator
         return dependencyGraph.Sort().Item1;
     }
 
-    private List<CellKey> GetDependencies(Expr Ast)
+    private List<CellKey> GetDependencies(AstNode Ast)
     {
         // TODO: Maybe recursion isn't the best thing way to do things here (in terms of performance).
         switch (Ast)
         {
-            case Expr.Unary   ast:
+            case AstNode.Unary   ast:
                 return GetDependencies(ast.Body);
 
-            case Expr.Binary  ast:
+            case AstNode.Binary  ast:
                 return GetDependencies(ast.Left).Concat(GetDependencies(ast.Right)).ToList();
 
-            case Expr.Primary.Cell ast:
+            case AstNode.Primary.Cell ast:
                 return new List<CellKey>
                     (new[] { new CellKey(ast.Column, ast.Row) });
 

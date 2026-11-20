@@ -262,7 +262,7 @@ internal class GridView : Border
             }
             else if (e.Key == Key.C && IsControlPressed(e))
             {
-                _ = CopyToClipboard(GetCellText(cell));
+                _ = CopyToClipboard(GetFormattedCellText(cell));
                 e.Handled = true;
             }
             else if (e.Key == Key.V && IsControlPressed(e))
@@ -561,7 +561,7 @@ internal class GridView : Border
         return (keyEvent.KeyModifiers & KeyModifiers.Control) != 0;
     }
 
-    private static string GetCellText(Border cell)
+    private static string GetFormattedCellText(Border cell)
     {
         return (cell.Child as TextBlock)?.Text
                ?? (cell.Child as TextBox)?.Text
@@ -793,14 +793,14 @@ internal class GridView : Border
             //     .IsStyled = true;
 
             // Right now make hasBorders true, will have to figure out what to do with the multiple style types
-            _sheet.GetCell(new CellKey(Grid.GetRow(_selectedCell) - 1, Grid.GetColumn(_selectedCell))).StyleId.HasBorders = true;
+            // _sheet.GetCell(new CellKey(Grid.GetRow(_selectedCell) - 1, Grid.GetColumn(_selectedCell))).StyleId.HasBorders = true;
 
             _highlightedCells.Add(_selectedCell);
             _selectedCell.Focus();
         }
         else
         {
-            _sheet.GetCell(new CellKey(Grid.GetRow(_selectedCell) - 1, Grid.GetColumn(_selectedCell))).StyleId.HasBorders = false;
+            // _sheet.GetCell(new CellKey(Grid.GetRow(_selectedCell) - 1, Grid.GetColumn(_selectedCell))).StyleId.HasBorders = false;
 
             _highlightedCells.Remove(_selectedCell);
             _selectedCell.BorderBrush = new SolidColorBrush(Color.Parse("#252627"));

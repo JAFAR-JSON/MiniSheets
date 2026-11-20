@@ -21,22 +21,22 @@ public class ValueParser
         _parser = parser;
     }
 
-    public Expr ParseValue(string text)
+    public AstNode ParseValue(string text)
     {
         return ParseValue(CellFormat.General, text);
     }
 
-    public Expr ParseValue(CellFormat format, string text)
+    public AstNode ParseValue(CellFormat format, string text)
     {
         if (text.Length >= 1 && text[0] == '\'')
         {
-            return new Expr.Literal(new CellValue.Text(text.Substring(1)));
+            return new AstNode.Literal(new CellValue.Text(text.Substring(1)));
         }
         else if (text.Length >= 1 && text[0] == '=')
         {
             if (format == CellFormat.Text)
             {
-                return new Expr.Literal(new CellValue.Text(text));
+                return new AstNode.Literal(new CellValue.Text(text));
             }
 
             return _parser.ParseText(text.Substring(1));
@@ -49,9 +49,9 @@ public class ValueParser
         //             ?? HandleNumber(text)
         //             ?? HandleCurrency(text)
         //             ?? HandleDate(text)
-        //             ?? new Expr.Literal(new CellValue.Text(text));
+        //             ?? new AstNode.Literal(new CellValue.Text(text));
         //     // {
-        //     //     Expr? expr = null;
+        //     //     AstNode? expr = null;
         //     //
         //     //     expr = HandleBoolean(text);
         //     //     if (expr is not null) return expr;
@@ -65,11 +65,11 @@ public class ValueParser
         //     //     expr = HandleDate(text);
         //     //     if (expr is not null) return expr;
         //     //
-        //     //     return new Expr.Literal(new CellValue.Text(text));
+        //     //     return new AstNode.Literal(new CellValue.Text(text));
         //     // }
         //
         //     case CellFormat.Text:
-        //         return new Expr.Literal(new CellValue.Text(text));
+        //         return new AstNode.Literal(new CellValue.Text(text));
         //
         //     case CellFormat.Number   : return HandleNumber(text);
         //
@@ -77,7 +77,7 @@ public class ValueParser
         //     case CellFormat.Date:
         //
         //     default:
-        //         expr = new Expr.Literal(new CellValue.Empty());
+        //         expr = new AstNode.Literal(new CellValue.Empty());
         // }
         //
         // return expr;
@@ -88,9 +88,9 @@ public class ValueParser
                 ?? HandleNumber(text)
                 ?? HandleCurrency(text)
                 ?? HandleDate(text)
-                ?? new Expr.Literal(new CellValue.Text(text)),
+                ?? new AstNode.Literal(new CellValue.Text(text)),
 
-            CellFormat.Text => new Expr.Literal(new CellValue.Text(text)),
+            CellFormat.Text => new AstNode.Literal(new CellValue.Text(text)),
 
             CellFormat.Number   => HandleNumber  (text) ?? ReturnError(),
             CellFormat.Currency => HandleCurrency(text) ?? ReturnError(),
@@ -99,20 +99,20 @@ public class ValueParser
         };
     }
 
-    private Expr ReturnError()
-        => new Expr.Literal(new CellValue.Error("#VALUE!"));
+    private AstNode ReturnError()
+        => new AstNode.Literal(new CellValue.Error("#VALUE!"));
 
-    public Expr? HandleBoolean(string text)
+    public AstNode? HandleBoolean(string text)
     {
         string convertedText = text.ToUpper();
 
         if (convertedText.Equals("TRUE"))
         {
-            return new Expr.Literal(new CellValue.Bool(true));
+            return new AstNode.Literal(new CellValue.Bool(true));
         }
         else if (convertedText.Equals("FALSE"))
         {
-            return new Expr.Literal(new CellValue.Bool(false));
+            return new AstNode.Literal(new CellValue.Bool(false));
         }
         else
         {
@@ -120,7 +120,7 @@ public class ValueParser
         }
     }
 
-    public Expr? HandleNumber(string text)
+    public AstNode? HandleNumber(string text)
     {
         string? canonizedText = NumberCanonizer.Canonize(text);
         if (canonizedText is null)
@@ -130,7 +130,7 @@ public class ValueParser
 
         if (decimal.TryParse(canonizedText, out decimal convertedDecimal))
         {
-            return new Expr.Literal(new CellValue.Number((double) convertedDecimal));
+            return new AstNode.Literal(new CellValue.Number((double) convertedDecimal));
         }
         else
         {
@@ -140,7 +140,7 @@ public class ValueParser
 
     // TODO: Handle the case where if a Cell's style is General,
     // then set it to Currency with 2 decimal places.
-    public Expr? HandleCurrency(string text)
+    public AstNode? HandleCurrency(string text)
     {
         var currencyStrings =
             ImmutableArray.Create( "€", "$", "£", "EUR", "USD", "GBP" );
@@ -189,7 +189,7 @@ public class ValueParser
             _ => null
         };
 
-    private Expr? HandleDecimal(string text)
+    private AstNode? HandleDecimal(string text)
     {
         string? canonizedText = NumberCanonizer.Canonize(text);
         if (canonizedText is null)
@@ -199,7 +199,7 @@ public class ValueParser
 
         if (decimal.TryParse(canonizedText, out decimal convertedDecimal))
         {
-            return new Expr.Literal(new CellValue.Decimal(convertedDecimal));
+            return new AstNode.Literal(new CellValue.Decimal(convertedDecimal));
         }
         else
         {
@@ -207,7 +207,7 @@ public class ValueParser
         }
     }
 
-    public Expr? HandleDate(string text)
+    public AstNode? HandleDate(string text)
     {
         text = text.Trim();
 
@@ -216,7 +216,7 @@ public class ValueParser
             DateOnly firstDate =
                 DateOnly.ParseExact
                     (text, "yyyy-MM-dd");
-            return new Expr.Literal(new CellValue.Date(firstDate));
+            return new AstNode.Literal(new CellValue.Date(firstDate));
         }
         catch (FormatException)
         {

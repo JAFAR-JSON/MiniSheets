@@ -12,9 +12,8 @@ public class Workbook
     // private DateTime _createdAt  { get; set; } = null;
     // private DateTime _modifiedAt { get; set; } = null;
 
-    public Guid CreateSheet()
+    public Guid AddSheet(Sheet sheet)
     {
-        Sheet sheet = new();
         Sheets[sheet.Id] = sheet;
         SheetIds.Add(sheet.Id);
         return sheet.Id;
