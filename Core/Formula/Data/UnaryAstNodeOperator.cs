@@ -1,6 +1,6 @@
 namespace MiniSheets.Core.Formula;
 
-public enum UnaryExprOperator
+public enum UnaryAstNodeOperator
 {
     Negate,
     Plus,

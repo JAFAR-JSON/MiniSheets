@@ -50,9 +50,10 @@ class SheetTabs : Border
             VerticalAlignment = VerticalAlignment.Center
         };
 
-        for (int i = 0; i < _workbook.Sheets; i++)
+        for (int i = 0; i < _workbook.SheetCount; i++)
         {
-            var sheet = _workbook._sheets[i];
+            var sheetId = _workbook.SheetIds[i];
+            var sheet = _workbook.Sheets[sheetId];
 
             var sheetButton = CreateSheetButton(
                 sheet.Name ?? $"Sheet{i + 1}"
@@ -61,11 +62,11 @@ class SheetTabs : Border
             sheetButtonsPanel.Children.Add(sheetButton);
         }
 
-        if (_workbook.Sheets == 0)
+        if (_workbook.SheetCount == 0)
         {
             var sheetButton = CreateSheetButton("Sheet1");
             // change later
-            _workbook._sheets.Add(new Sheet { Name = "Sheet1" });
+            _workbook.AddSheet(new Sheet { Name = "Sheet1" });
             sheetButtonsPanel.Children.Add(sheetButton);
         }
 
@@ -77,8 +78,7 @@ class SheetTabs : Border
         // CHANGE LATER TO STATE FILES
         // Add a new sheet to the workbook
         var newSheet = new Sheet();
-        _workbook._sheets.Add(newSheet);
-
+        _workbook.AddSheet(newSheet);
 
         var newSheetButton = CreateSheetButton($"Sheet{_workbook.Sheets}");
 
@@ -86,7 +86,7 @@ class SheetTabs : Border
         {
             sheetButtonsPanel.Children.Add(newSheetButton);
         }
-        _selectedSheetIndex = _workbook.Sheets - 1;
+        _selectedSheetIndex = _workbook.SheetCount - 1;
         newSheetButton.RaiseEvent(
             new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)
         );
@@ -124,7 +124,16 @@ class SheetTabs : Border
             _selectedButton.Background = Brushes.White;
             _selectedButton.BorderBrush = new SolidColorBrush(Color.Parse("#9ca3af"));
 
-            _selectedSheetIndex = _workbook._sheets.FindIndex(s => s.Name == title);
+            // _selectedSheetIndex = _workbook.Sheets.FindIndex(s => s.Name == title);
+            for (int i = 0; i < _workbook.SheetCount; ++i)
+            {
+                var sheet = _workbook.Sheets[_workbook.SheetIds[i]];
+                if (sheet.Name == title)
+                {
+                    _selectedSheetIndex = i;
+                    break;
+                }
+            }
         };
 
         return sheetButton;

@@ -1,6 +1,6 @@
 namespace MiniSheets.Core.Formula;
 
-public enum BinaryExprOperator
+public enum BinaryAstNodeOperator
 {
     Add,
     Subtract,

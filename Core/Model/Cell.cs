@@ -1,8 +1,11 @@
+using MiniSheets.Core.Formula;
+
 namespace MiniSheets.Core.Model;
 
 public class Cell
 {
     public string Raw { get; set; } = "";
-    public CellStyle StyleId { get; set; } = new CellStyle();
+    public int StyleId { get; set; } = 0;
+    public AstNode? Ast { get; set; } = null;
     public CellValue Value { get; set; } = new CellValue.Empty();
 }

@@ -2,23 +2,23 @@ using MiniSheets.Core.Model;
 
 namespace MiniSheets.Core.Formula;
 
-public abstract record Expr
+public abstract record AstNode
 {
-    private Expr() {}
+    private AstNode() {}
 
-    public sealed record Literal(CellValue Value) : Expr;
-    public abstract record Primary() : Expr
+    public sealed record Literal(CellValue Value) : AstNode;
+    public abstract record Primary() : AstNode
     {
         public sealed record Identifier(string Value) : Primary;
         public sealed record Text(string Value) : Primary;
         public sealed record Number(string Value) : Primary;
         public sealed record Error(string Value) : Primary;
         public sealed record Cell
-            (int column, bool isColumnFixed, int row, bool isRowFixed) : Primary;
+            (int Column, bool isColumnFixed, int Row, bool isRowFixed) : Primary;
     }
 
-    public sealed record Unary(UnaryExprOperator op, Expr body) : Expr;
-    public sealed record Binary(BinaryExprOperator op, Expr left, Expr right) : Expr;
+    public sealed record Unary(UnaryAstNodeOperator Op, AstNode Body) : AstNode;
+    public sealed record Binary(BinaryAstNodeOperator Op, AstNode Left, AstNode Right) : AstNode;
 
     // // Literals
     // public sealed record Identifier(string identifier) : ASTNode;
