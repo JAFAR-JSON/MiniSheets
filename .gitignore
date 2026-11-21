@@ -5,6 +5,7 @@
 
 # Custom files
 tags
+.personal
 
 # User-specific files
 *.suo
