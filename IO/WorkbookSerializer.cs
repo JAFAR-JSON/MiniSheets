@@ -38,8 +38,10 @@ public class WorkbookSerializer
     {
         // Index 0 is always the default style. The rest are added in the order the cells use them,
         // this way the styles that are not used by any cell are dropped, like the specification wants.
+        // MsheetStyle is a record, so two styles with the same fields are the same key,
+        // and identical styles are saved only once (8).
         List<MsheetStyle> styles = new() { new MsheetStyle() };
-        Dictionary<int, int> newStyleIds = new() { [0] = 0 };
+        Dictionary<MsheetStyle, int> newStyleIds = new() { [new MsheetStyle()] = 0 };
         List<MsheetSheet> sheets = new();
 
         foreach (Guid sheetId in workbook.SheetIds)
@@ -47,19 +49,24 @@ public class WorkbookSerializer
             Sheet sheet = workbook.Sheets[sheetId];
             Dictionary<string, MsheetCell> cells = new();
 
-            // A cell with an empty raw and the default style counts as removed, so it isn't saved.
             IEnumerable<KeyValuePair<CellKey, Cell>> orderedCells = sheet.Cells
-                .Where(pair => pair.Value.Raw != "" || pair.Value.StyleId != 0)
                 .OrderBy(pair => pair.Key.Row)
                 .ThenBy(pair => pair.Key.Column);
 
             foreach (KeyValuePair<CellKey, Cell> pair in orderedCells)
             {
-                if (!newStyleIds.TryGetValue(pair.Value.StyleId, out int newStyleId))
+                MsheetStyle style = ToMsheetStyle(workbook.Styles.GetValueOrDefault(pair.Value.StyleId) ?? new CellStyle());
+                if (!newStyleIds.TryGetValue(style, out int newStyleId))
                 {
                     newStyleId = styles.Count;
-                    newStyleIds[pair.Value.StyleId] = newStyleId;
-                    styles.Add(ToMsheetStyle(workbook.Styles.GetValueOrDefault(pair.Value.StyleId) ?? new CellStyle()));
+                    newStyleIds[style] = newStyleId;
+                    styles.Add(style);
+                }
+
+                // A cell with an empty raw and the default style counts as removed, so it isn't saved.
+                if (pair.Value.Raw == "" && newStyleId == 0)
+                {
+                    continue;
                 }
 
                 cells[ToAddress(pair.Key)] = new MsheetCell
