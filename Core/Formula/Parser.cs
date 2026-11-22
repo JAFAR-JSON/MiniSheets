@@ -121,7 +121,7 @@ public class Parser
         switch (token)
         {
             case Token.Identifier t:
-                return new AstNode.Primary.Identifier(t.Value);
+                return ParseAstNodeCall(t.Value);
 
             case Token.Str t:
                 return new AstNode.Primary.Text(t.Value);
@@ -148,6 +148,37 @@ public class Parser
             default:
                 throw new ParsingException("Failed to parse primary exception.");
         }
+    }
+
+    private AstNode ParseAstNodeCall(string name)
+    {
+        List<AstNode> arguments = new();
+
+        Token token = ConsumeToken();
+        if (token is not Token.LeftParenthesis)
+        {
+            throw new ParsingException("No left parenthesis found.");
+        }
+
+        while (true)
+        {
+            arguments.Add(ParseAstNode());
+            token = ConsumeToken();
+            if (token is Token.RightParenthesis)
+            {
+                break;
+            }
+            else if (token is Token.Comma)
+            {
+                continue;
+            }
+            else
+            {
+                throw new ParsingException("No accompanying right parenthesis found.");
+            }
+        }
+
+        return new AstNode.Call(name, arguments.ToArray());
     }
 
     private AstNode ParseAstNodePostfix()

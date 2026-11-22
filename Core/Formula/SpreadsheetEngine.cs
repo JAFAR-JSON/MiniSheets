@@ -10,7 +10,7 @@ public class SpreadsheetEngine
 {
     private readonly Workbook _workbook;
     private readonly Recalculator _recalculator;
-    // private readonly FunctionRegistry _functionRegistry;
+    private readonly FunctionRegistry _functionRegistry;
     private readonly StyleManager _styleManager;
     private readonly Evaluator _evaluator;
     private readonly Parser _parser;
@@ -21,8 +21,9 @@ public class SpreadsheetEngine
     {
         _workbook = workbook;
         _recalculator = new Recalculator(_workbook);
+        _functionRegistry = new FunctionRegistry();
         _styleManager = new StyleManager(_workbook);
-        _evaluator = new Evaluator(_workbook, _styleManager);
+        _evaluator = new Evaluator(_workbook, _styleManager, _functionRegistry);
         _parser = new Parser();
         _valueParser = new ValueParser(_parser);
         _valueFormatter = new ValueFormatter(_styleManager);
