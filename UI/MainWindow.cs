@@ -23,9 +23,39 @@ internal sealed class MainWindow : Window
         var gridView = new GridView(sheet);
         var uiHandler = new SpreadSheetUiEventHandler(gridView, formulaBar, menuBar);
 
+        var workbook = new Workbook();
+
         DockPanel.SetDock(menuBar, Dock.Top);
         DockPanel.SetDock(formulaBar, Dock.Top);
-        DockPanel.SetDock(gridView, Dock.Top);
+
+        var footer = new DockPanel
+        {
+            [DockPanel.DockProperty] = Dock.Bottom
+        };
+        footer.Children.Add(new Separator
+        {
+            [DockPanel.DockProperty] = Dock.Top,
+            Height = 1,
+            Background = new SolidColorBrush(Color.Parse("#aca3a38e")),
+            Margin = new Thickness(0),
+            Padding = new Thickness(0)
+        });
+        footer.Children.Add(new SheetTabs(workbook)
+        {
+            [DockPanel.DockProperty] = Dock.Top
+        });
+        footer.Children.Add(new Separator
+        {
+            [DockPanel.DockProperty] = Dock.Top,
+            Height = 1,
+            Background = new SolidColorBrush(Color.Parse("#aca3a38e")),
+            Margin = new Thickness(0),
+            Padding = new Thickness(0)
+        });
+        footer.Children.Add(new StatusBar
+        {
+            [DockPanel.DockProperty] = Dock.Bottom
+        });
 
         Content = new DockPanel
         {
@@ -54,8 +84,8 @@ internal sealed class MainWindow : Window
                     Padding = new Thickness(0)
                 },
                 formulaBar,
-                gridView,
-                new Border()
+                footer,
+                gridView
             }
         };
 

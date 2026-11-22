@@ -3,6 +3,9 @@ using Avalonia.Media;
 using Avalonia.Layout;
 using Avalonia;
 using Avalonia.Styling;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using MiniSheets.State;
 
 namespace MiniSheets.UI;
 
@@ -11,9 +14,11 @@ public class FormulaBar : Border
 
     private readonly TextBox _formulaTextBox;
     private readonly TextBox _nameBox;
+    private bool _updatingFromSelection;
 
     public event EventHandler<string>? ChangeGridCellContent;
     public event EventHandler? EnterPressed;
+    public event EventHandler<(string firstChar, string restOfCellName)>? GoToCell;
 
     public FormulaBar()
     {
@@ -23,8 +28,39 @@ public class FormulaBar : Border
         _formulaTextBox = CreateFormulaTextBox();
         _nameBox = CreateNameBox();
 
+        _nameBox.AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (HandleClipboardShortcut(_nameBox, e))
+            {
+                return;
+            }
+
+            if (e.Key == Key.Enter)
+            {
+                var cellName = (_nameBox.Text ?? string.Empty).Trim();
+                var separator = 0;
+                while (separator < cellName.Length && char.IsLetter(cellName[separator]))
+                    separator++;
+
+                var columnName = cellName[..separator];
+                var rowName = cellName[separator..];
+                if (columnName.Length > 0 &&
+                    int.TryParse(rowName, out var rowNumber) &&
+                    rowNumber > 0 &&
+                    rowNumber <= 10000)
+                {
+                    GoToCell?.Invoke(this, (columnName, rowName));
+                }
+
+                e.Handled = true;
+            }
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
+
         _formulaTextBox.TextChanged += (_, _) =>
         {
+            if (_updatingFromSelection)
+                return;
+
             if (_formulaTextBox is TextBox formulaTextBox)
             {
                 var text = formulaTextBox.Text ?? string.Empty;
@@ -33,14 +69,19 @@ public class FormulaBar : Border
             }
         };
 
-        _formulaTextBox.KeyDown += (_, e) =>
+        _formulaTextBox.AddHandler(KeyDownEvent, (_, e) =>
         {
-            if (e.Key == Avalonia.Input.Key.Enter)
+            if (HandleClipboardShortcut(_formulaTextBox, e))
+            {
+                return;
+            }
+
+            if (e.Key == Key.Enter)
             {
                 EnterPressed?.Invoke(this, EventArgs.Empty);
                 e.Handled = true;
             }
-        };
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
 
         Grid.SetColumn(_nameBox, 0);
         Grid.SetColumn(functionLabel, 2);
@@ -57,6 +98,33 @@ public class FormulaBar : Border
                 _formulaTextBox
             }
         };
+    }
+
+    private static bool HandleClipboardShortcut(TextBox textBox, KeyEventArgs keyEvent)
+    {
+        if ((keyEvent.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) == 0)
+            return false;
+
+        if (keyEvent.Key == Key.C)
+        {
+            _ = Clipboard.CopyAsync(textBox.Text ?? string.Empty);
+            keyEvent.Handled = true;
+            return true;
+        }
+
+        if (keyEvent.Key == Key.V)
+        {
+            _ = PasteTextAsync(textBox);
+            keyEvent.Handled = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static async Task PasteTextAsync(TextBox textBox)
+    {
+        textBox.Text = await Clipboard.PasteAsync();
     }
 
     private TextBox CreateNameBox()
@@ -81,14 +149,18 @@ public class FormulaBar : Border
 
     public void SetSelectedCell(string cellName, string text)
     {
-        if (_nameBox.Text != cellName)
+        _updatingFromSelection = true;
+        try
         {
-            _nameBox.Text = cellName;
-        }
+            if (_nameBox.Text != cellName)
+                _nameBox.Text = cellName;
 
-        if (_formulaTextBox.Text != text)
+            if (_formulaTextBox.Text != text)
+                _formulaTextBox.Text = text;
+        }
+        finally
         {
-            _formulaTextBox.Text = text;
+            _updatingFromSelection = false;
         }
     }
 

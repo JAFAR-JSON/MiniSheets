@@ -12,7 +12,7 @@ public class Parser
 
     public Parser() { }
 
-    public Expr ParseText(string text)
+    public AstNode ParseText(string text)
     {
         Token[]? tokens = _lexer.TokenizeText(text);
         if (tokens is null)
@@ -25,18 +25,18 @@ public class Parser
         }
     }
     
-    public Expr ParseTokens(Token[] tokens)
+    public AstNode ParseTokens(Token[] tokens)
     {
         _tokens = tokens;
         _current = 0;
 
         try
         {
-            return ParseExpr();
+            return ParseAstNode();
         }
         catch (ParsingException)
         {
-            return new Expr.Primary.Error("#ERROR!");
+            return new AstNode.Primary.Error("#ERROR!");
         }
     }
 
@@ -113,7 +113,7 @@ public class Parser
         return _tokens[_current - 1];
     }
 
-    private Expr ParseExprPrimary()
+    private AstNode ParseAstNodePrimary()
     {
         Token token;
 
@@ -121,28 +121,28 @@ public class Parser
         switch (token)
         {
             case Token.Identifier t:
-                return new Expr.Primary.Identifier(t.Value);
+                return new AstNode.Primary.Identifier(t.Value);
 
             case Token.Str t:
-                return new Expr.Primary.Text(t.Value);
+                return new AstNode.Primary.Text(t.Value);
 
             case Token.Number t:
-                return new Expr.Primary.Number(t.Value);
+                return new AstNode.Primary.Number(t.Value);
 
             case Token.Cell t:
-                return new Expr.Primary.Cell
+                return new AstNode.Primary.Cell
                     (t.Column, t.IsColumnFixed, t.Row, t.IsRowFixed);
 
             case Token.LeftParenthesis _:
             {
-                Expr innerExpr = ParseExpr();
+                AstNode innerAstNode = ParseAstNode();
 
                 Token rightParenthesis = ConsumeToken();
                 if (rightParenthesis is not Token.RightParenthesis _)
                 {
                     throw new ParsingException("No accompanying right parenthesis found.");
                 }
-                return innerExpr;
+                return innerAstNode;
             }
 
             default:
@@ -150,14 +150,14 @@ public class Parser
         }
     }
 
-    private Expr ParseExprPostfix()
+    private AstNode ParseAstNodePostfix()
     {
-        Expr expr = ParseExprPrimary();
+        AstNode expr = ParseAstNodePrimary();
 
         while (true)
         {
             Token? token;
-            UnaryExprOperator? unaryOperator;
+            UnaryAstNodeOperator? unaryOperator;
 
             token = PeekToken();
             if (token is null)
@@ -167,7 +167,7 @@ public class Parser
 
             unaryOperator = token switch
             {
-                Token.Percent => UnaryExprOperator.Percentify,
+                Token.Percent => UnaryAstNodeOperator.Percentify,
                 _ => null
             };
 
@@ -178,13 +178,13 @@ public class Parser
 
             SkipToken();
 
-            expr = new Expr.Unary(unaryOperator.Value, expr);
+            expr = new AstNode.Unary(unaryOperator.Value, expr);
         }
 
         return expr;
     }
 
-    private Expr ParseExprUnary()
+    private AstNode ParseAstNodeUnary()
     {
         Token? token = PeekToken();
         if (token is null)
@@ -192,98 +192,98 @@ public class Parser
             ConsumeToken();
         }
 
-        UnaryExprOperator? unaryOperator = token switch
+        UnaryAstNodeOperator? unaryOperator = token switch
         {
-            Token.Minus => UnaryExprOperator.Negate,
-            Token.Plus  => UnaryExprOperator.Plus  ,
+            Token.Minus => UnaryAstNodeOperator.Negate,
+            Token.Plus  => UnaryAstNodeOperator.Plus  ,
             _ => null
         };
 
         if (unaryOperator is null)
         {
-            return ParseExprPostfix();
+            return ParseAstNodePostfix();
         }
 
-        return new Expr.Unary(unaryOperator.Value, ParseExprUnary());
+        return new AstNode.Unary(unaryOperator.Value, ParseAstNodeUnary());
     }
 
-    private Expr ParseExprRaise()
+    private AstNode ParseAstNodeRaise()
     {
-        Expr expr = ParseExprUnary();
+        AstNode expr = ParseAstNodeUnary();
 
         while (MatchToken(typeof(Token.Caret)))
         {
-            BinaryExprOperator binaryOperator = PreviousToken() switch
+            BinaryAstNodeOperator binaryOperator = PreviousToken() switch
             {
-                Token.Caret => BinaryExprOperator.Raise,
+                Token.Caret => BinaryAstNodeOperator.Raise,
                 _ => throw new UnreachableException()
             };
-            Expr right = ParseExprUnary();
-            expr = new Expr.Binary(binaryOperator, expr, right);
+            AstNode right = ParseAstNodeUnary();
+            expr = new AstNode.Binary(binaryOperator, expr, right);
         }
 
         return expr;
     }
 
-    private Expr ParseExprFactor()
+    private AstNode ParseAstNodeFactor()
     {
-        Expr expr = ParseExprRaise();
+        AstNode expr = ParseAstNodeRaise();
 
         while (MatchToken(typeof(Token.Star), typeof(Token.Slash)))
         {
-            BinaryExprOperator binaryOperator = PreviousToken() switch
+            BinaryAstNodeOperator binaryOperator = PreviousToken() switch
             {
-                Token.Star  => BinaryExprOperator.Multiply,
-                Token.Slash => BinaryExprOperator.Divide  ,
+                Token.Star  => BinaryAstNodeOperator.Multiply,
+                Token.Slash => BinaryAstNodeOperator.Divide  ,
                 _ => throw new UnreachableException()
             };
-            Expr right = ParseExprRaise();
-            expr = new Expr.Binary(binaryOperator, expr, right);
+            AstNode right = ParseAstNodeRaise();
+            expr = new AstNode.Binary(binaryOperator, expr, right);
         }
 
         return expr;
     }
 
-    private Expr ParseExprTerm()
+    private AstNode ParseAstNodeTerm()
     {
-        Expr expr = ParseExprFactor();
+        AstNode expr = ParseAstNodeFactor();
 
         while (MatchToken(typeof(Token.Plus), typeof(Token.Minus)))
         {
-            BinaryExprOperator binaryOperator = PreviousToken() switch
+            BinaryAstNodeOperator binaryOperator = PreviousToken() switch
             {
-                Token.Plus  => BinaryExprOperator.Add     ,
-                Token.Minus => BinaryExprOperator.Subtract,
+                Token.Plus  => BinaryAstNodeOperator.Add     ,
+                Token.Minus => BinaryAstNodeOperator.Subtract,
                 _ => throw new UnreachableException()
             };
-            Expr right = ParseExprFactor();
-            expr = new Expr.Binary(binaryOperator, expr, right);
+            AstNode right = ParseAstNodeFactor();
+            expr = new AstNode.Binary(binaryOperator, expr, right);
         }
 
         return expr;
     }
 
-    private Expr ParseExprJoin()
+    private AstNode ParseAstNodeJoin()
     {
-        Expr expr = ParseExprTerm();
+        AstNode expr = ParseAstNodeTerm();
 
         while (MatchToken(typeof(Token.Ampersand)))
         {
-            BinaryExprOperator binaryOperator = PreviousToken() switch
+            BinaryAstNodeOperator binaryOperator = PreviousToken() switch
             {
-                Token.Ampersand => BinaryExprOperator.Join,
+                Token.Ampersand => BinaryAstNodeOperator.Join,
                 _ => throw new UnreachableException()
             };
-            Expr right = ParseExprTerm();
-            expr = new Expr.Binary(binaryOperator, expr, right);
+            AstNode right = ParseAstNodeTerm();
+            expr = new AstNode.Binary(binaryOperator, expr, right);
         }
 
         return expr;
     }
 
-    private Expr ParseExprComparison()
+    private AstNode ParseAstNodeComparison()
     {
-        Expr expr = ParseExprJoin();
+        AstNode expr = ParseAstNodeJoin();
 
         while (
             MatchToken (
@@ -296,26 +296,26 @@ public class Parser
                 )
             )
         {
-            BinaryExprOperator binaryOperator = PreviousToken() switch
+            BinaryAstNodeOperator binaryOperator = PreviousToken() switch
             {
-                Token.Equal            => BinaryExprOperator.Equal           ,
-                Token.NotEqual         => BinaryExprOperator.NotEqual        ,
-                Token.LessThan         => BinaryExprOperator.LessThan        ,
-                Token.GreaterThan      => BinaryExprOperator.GreaterThan     ,
-                Token.LessThanEqual    => BinaryExprOperator.LessThanEqual   ,
-                Token.GreaterThanEqual => BinaryExprOperator.GreaterThanEqual,
+                Token.Equal            => BinaryAstNodeOperator.Equal           ,
+                Token.NotEqual         => BinaryAstNodeOperator.NotEqual        ,
+                Token.LessThan         => BinaryAstNodeOperator.LessThan        ,
+                Token.GreaterThan      => BinaryAstNodeOperator.GreaterThan     ,
+                Token.LessThanEqual    => BinaryAstNodeOperator.LessThanEqual   ,
+                Token.GreaterThanEqual => BinaryAstNodeOperator.GreaterThanEqual,
                 _ => throw new UnreachableException()
             };
-            Expr right = ParseExprJoin();
-            expr = new Expr.Binary(binaryOperator, expr, right);
+            AstNode right = ParseAstNodeJoin();
+            expr = new AstNode.Binary(binaryOperator, expr, right);
         }
 
         return expr;
     }
 
-    private Expr ParseExpr()
+    private AstNode ParseAstNode()
     {
-        return ParseExprComparison();
+        return ParseAstNodeComparison();
         // throw new ParsingException("Not implemented yet");
     }
 

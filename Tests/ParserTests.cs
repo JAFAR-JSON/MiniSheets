@@ -19,29 +19,29 @@ public class ParserTests
             new Token.Slash(),
             new Token.Number("5"),
         };
-        Expr parsedTokens = parser.ParseTokens(tokens);
-        Expr testExpr =
-            new Expr.Binary
+        AstNode parsedTokens = parser.ParseTokens(tokens);
+        AstNode testAstNode =
+            new AstNode.Binary
             (
-                BinaryExprOperator.Add,
-                new Expr.Binary
+                BinaryAstNodeOperator.Add,
+                new AstNode.Binary
                 (
-                    BinaryExprOperator.Multiply,
-                    new Expr.Primary.Number("2"),
-                    new Expr.Primary.Number("3")
+                    BinaryAstNodeOperator.Multiply,
+                    new AstNode.Primary.Number("2"),
+                    new AstNode.Primary.Number("3")
                 ),
-                new Expr.Binary
+                new AstNode.Binary
                 (
-                    BinaryExprOperator.Divide,
-                    new Expr.Unary
+                    BinaryAstNodeOperator.Divide,
+                    new AstNode.Unary
                     (
-                        UnaryExprOperator.Percentify,
-                        new Expr.Primary.Number("5")
+                        UnaryAstNodeOperator.Percentify,
+                        new AstNode.Primary.Number("5")
                     ),
-                    new Expr.Primary.Number("5")
+                    new AstNode.Primary.Number("5")
                 )
             );
 
-        Assert.True(parsedTokens.Equals(testExpr), "String values are not equal.");
+        Assert.True(parsedTokens.Equals(testAstNode), "String values are not equal.");
     }
 }

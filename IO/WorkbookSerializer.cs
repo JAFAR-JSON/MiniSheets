@@ -40,12 +40,13 @@ public class WorkbookSerializer
         Dictionary<int, int> newStyleIds = new() { [0] = 0 };
         List<MsheetSheet> sheets = new();
 
-        foreach (Sheet sheet in workbook.GetSheets())
+        foreach (Guid sheetId in workbook.SheetIds)
         {
+            Sheet sheet = workbook.Sheets[sheetId];
             Dictionary<string, MsheetCell> cells = new();
 
             // A cell with an empty raw and the default style counts as removed, so it isn't saved.
-            IEnumerable<KeyValuePair<CellKey, Cell>> orderedCells = sheet.GetCells()
+            IEnumerable<KeyValuePair<CellKey, Cell>> orderedCells = sheet.Cells
                 .Where(pair => pair.Value.Raw != "" || pair.Value.StyleId != 0)
                 .OrderBy(pair => pair.Key.Row)
                 .ThenBy(pair => pair.Key.Column);
@@ -56,7 +57,7 @@ public class WorkbookSerializer
                 {
                     newStyleId = styles.Count;
                     newStyleIds[pair.Value.StyleId] = newStyleId;
-                    styles.Add(ToMsheetStyle(workbook.GetStyle(pair.Value.StyleId)));
+                    styles.Add(ToMsheetStyle(workbook.Styles.GetValueOrDefault(pair.Value.StyleId) ?? new CellStyle()));
                 }
 
                 cells[ToAddress(pair.Key)] = new MsheetCell
@@ -72,8 +73,8 @@ public class WorkbookSerializer
                 (
                     Id: sheet.Id.ToString(),
                     Name: sheet.Name,
-                    ColWidths: new Dictionary<int, int>(sheet.GetColumnWidths()),
-                    RowHeights: new Dictionary<int, int>(sheet.GetRowHeights()),
+                    ColWidths: new Dictionary<int, int>(sheet.ColumnWidths),
+                    RowHeights: new Dictionary<int, int>(sheet.RowHeights),
                     Cells: cells
                 )
             );
@@ -81,9 +82,9 @@ public class WorkbookSerializer
 
         // If no sheet was made active yet, the first one is used, since the file needs a valid one.
         Guid activeSheetId = workbook.ActiveSheetId;
-        if (workbook.GetSheet(activeSheetId) == null && workbook.Sheets > 0)
+        if (!workbook.Sheets.ContainsKey(activeSheetId) && workbook.SheetCount > 0)
         {
-            activeSheetId = workbook.GetSheets()[0].Id;
+            activeSheetId = workbook.SheetIds[0];
         }
 
         MsheetFile file = new MsheetFile
@@ -127,7 +128,7 @@ public class WorkbookSerializer
         List<MsheetStyle> styles = file.Styles ?? new();
         for (int styleId = 0; styleId < styles.Count; styleId++)
         {
-            workbook.SetStyle(styleId, ToCellStyle(styles[styleId]));
+            workbook.Styles[styleId] = ToCellStyle(styles[styleId]);
         }
 
         foreach (MsheetSheet msheetSheet in file.Sheets ?? new())
@@ -136,12 +137,12 @@ public class WorkbookSerializer
 
             foreach (KeyValuePair<int, int> pair in msheetSheet.ColWidths ?? new())
             {
-                sheet.SetColumnWidth(pair.Key, pair.Value);
+                sheet.ColumnWidths[pair.Key] = pair.Value;
             }
 
             foreach (KeyValuePair<int, int> pair in msheetSheet.RowHeights ?? new())
             {
-                sheet.SetRowHeight(pair.Key, pair.Value);
+                sheet.RowHeights[pair.Key] = pair.Value;
             }
 
             foreach (KeyValuePair<string, MsheetCell> pair in msheetSheet.Cells ?? new())
@@ -149,7 +150,7 @@ public class WorkbookSerializer
                 Cell cell = new Cell();
                 cell.Raw = pair.Value.Raw!;
                 cell.StyleId = pair.Value.Style ?? 0;
-                sheet.SetCell(ToCellKey(pair.Key)!.Value, cell);
+                sheet.Cells[ToCellKey(pair.Key)!.Value] = cell;
             }
 
             workbook.AddSheet(sheet);
