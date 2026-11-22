@@ -1,5 +1,7 @@
 namespace MiniSheets.IO;
 
+// NOT_SPECIFICATION: The specification says that io returns a success or failure result with a reason (6.1),
+// here an exception is thrown instead, the same way the Parser throws a ParsingException.
 // Thrown when an opened .msheet file is rejected (8.3).
 // The message says which check failed, e.g. "sheet 2: duplicate name", so that it can be written to the log.
 // IsNewerVersion tells apart the two messages the user can get:

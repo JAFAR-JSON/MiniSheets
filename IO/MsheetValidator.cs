@@ -1,8 +1,9 @@
-using System.Globalization;
 using MiniSheets.Core.Model;
 
 namespace MiniSheets.IO;
 
+// NOT_SPECIFICATION: In the specification the validation is a part of `WorkbookSerializer`,
+// it is a separate class here so that the serializer doesn't get too long.
 // Checks an opened .msheet file before it is turned into a Workbook (8.3).
 // Any failure rejects the whole file, so the first problem that is found gets thrown.
 // The messages never contain cell contents, since they end up in the log file (3.11.3).
@@ -38,7 +39,7 @@ public class MsheetValidator
 
         if (!IsGuid(file.Id))
             throw new WorkbookFileException("invalid workbook id");
-        if (!IsDate(file.CreatedAt) || !IsDate(file.ModifiedAt))
+        if (!WorkbookSerializer.IsDateText(file.CreatedAt) || !WorkbookSerializer.IsDateText(file.ModifiedAt))
             throw new WorkbookFileException("invalid date-time");
 
         // Index 0 is always the default style, so there has to be at least one.
@@ -46,6 +47,8 @@ public class MsheetValidator
             throw new WorkbookFileException("missing styles");
         for (int styleId = 0; styleId < file.Styles.Count; styleId++)
         {
+            if (file.Styles[styleId] == null)
+                throw new WorkbookFileException($"style {styleId}: missing");
             ValidateStyle(file.Styles[styleId], $"style {styleId}");
         }
 
@@ -60,6 +63,8 @@ public class MsheetValidator
             // Counted from 1 in the messages, the same way the user sees the tabs.
             string where = $"sheet {sheetIndex + 1}";
 
+            if (sheet == null)
+                throw new WorkbookFileException($"{where}: missing");
             if (!IsGuid(sheet.Id))
                 throw new WorkbookFileException($"{where}: invalid id");
             if (!sheetIds.Add(sheet.Id!.ToLowerInvariant()))
@@ -97,11 +102,12 @@ public class MsheetValidator
             if (cellKey == null || cellKey.Value.Column > maxColumn || cellKey.Value.Row < 1 || cellKey.Value.Row > maxRow)
                 throw new WorkbookFileException($"{where}: cell key outside A1:ZZ10000");
 
-            string? raw = pair.Value.Raw;
+            // The cell itself can be null too, e.g. "A1": null.
+            string? raw = pair.Value?.Raw;
             if (raw == null || raw.Length > maxRawLength || raw.Contains('\n') || raw.Contains('\r'))
                 throw new WorkbookFileException($"{where}, cell {pair.Key}: invalid raw");
 
-            int styleId = pair.Value.Style ?? 0;
+            int styleId = pair.Value!.Style ?? 0;
             if (styleId < 0 || styleId >= styleCount)
                 throw new WorkbookFileException($"{where}, cell {pair.Key}: unknown style index {styleId}");
         }
@@ -139,7 +145,4 @@ public class MsheetValidator
 
     private static bool IsGuid(string? text)
         => Guid.TryParse(text, out _);
-
-    private static bool IsDate(string? text)
-        => DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _);
 }

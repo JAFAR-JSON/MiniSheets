@@ -15,6 +15,8 @@ public class WorkbookSerializer
     public const string Format  = "minisheets";
     public const int    Version = 1;
     private const string dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'";
+    private const DateTimeStyles dateStyles = DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal;
+    private static readonly string[] dateFormats = { dateFormat, "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'" };
 
     private static readonly MsheetJsonContext _jsonContext = new
     (
@@ -220,8 +222,9 @@ public class WorkbookSerializer
         string letters = new string(address.TakeWhile(char.IsAsciiLetterUpper).ToArray());
         string digits  = address.Substring(letters.Length);
 
+        // "A01" is not allowed, otherwise "A1" and "A01" would be two keys for the same cell.
         int? column = ColumnEncodingConverter.Decode(letters);
-        if (column == null || !int.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out int row))
+        if (column == null || digits.StartsWith('0') || !int.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out int row))
         {
             return null;
         }
@@ -232,6 +235,11 @@ public class WorkbookSerializer
     private static string ToDateText(DateTime date)
         => date.ToUniversalTime().ToString(dateFormat, CultureInfo.InvariantCulture);
 
+    // Only ISO 8601 in UTC is accepted (8.2.1), with or without the milliseconds.
+    // Internal, since MsheetValidator uses it to check the dates.
+    internal static bool IsDateText(string? text)
+        => DateTime.TryParseExact(text, dateFormats, CultureInfo.InvariantCulture, dateStyles, out _);
+
     private static DateTime ParseDateText(string text)
-        => DateTime.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+        => DateTime.ParseExact(text, dateFormats, CultureInfo.InvariantCulture, dateStyles);
 }

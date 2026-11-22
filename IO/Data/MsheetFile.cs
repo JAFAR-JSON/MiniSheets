@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace MiniSheets.IO;
 
 // These records are the JSON form of the .msheet file, as written in the specification (8.3).
-// They are kept seperate from the Core.Model classes, so that the model doesn't need to know
+// They are kept separate from the Core.Model classes, so that the model doesn't need to know
 // anything about how it is saved.
 // Most of the fields are strings or nullable, since a file that is being opened can contain anything,
 // and the checking of it is done after it has been read.
