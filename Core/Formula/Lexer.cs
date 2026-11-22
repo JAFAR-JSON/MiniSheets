@@ -5,7 +5,6 @@ using MiniSheets.Core.Model;
 namespace MiniSheets.Core.Formula;
 
 // NOT_SPECIFICATION: There was a `Parser` in the specification but no `Lexer`.
-// TODO: I don't really like the fact that reseting Lexer state involves manual manipulation of _current.
 public class Lexer
 {
     private string _text = ""; // Stores the string that is being parsed.

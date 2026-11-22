@@ -41,9 +41,6 @@ public class SpreadsheetEngine
                 cell.Ast = _valueParser.ParseValue(cell.Raw);
             }
 
-            var dependencyGraph =
-                _recalculator.SheetDependencies[sheetId];
-
             // Evaluate every dependency in order.
             List<CellKey> cellKeys = _recalculator.CalculateSheet(sheetId);
             foreach (CellKey cellKey in cellKeys)
@@ -61,14 +58,18 @@ public class SpreadsheetEngine
     /// <exception cref="ArgumentOutOfRange">
     /// When accessing a non-existant sheet.
     /// </exception>
-    public void SetCellText(int sheetIndex, CellKey cellKey, string text)
+    public List<CellKey> SetCellText(int sheetIndex, CellKey cellKey, string text)
     {
         Guid sheetId = _workbook.SheetIds[sheetIndex];
 
-        SetCellText(sheetId, cellKey, text);
+        return SetCellText(sheetId, cellKey, text);
     }
 
-    public void SetCellText(Guid sheetId, CellKey cellKey, string text)
+    /// <summary>
+    /// TODO: List<CellKey> shoould return a list of all changed CellKey.
+    /// Currently, it returns EVERY cell.
+    /// </summary>
+    public List<CellKey> SetCellText(Guid sheetId, CellKey cellKey, string text)
     {
         Sheet sheet = _workbook.Sheets[sheetId];
         Cell  cell  = sheet.GetCell(cellKey);
@@ -87,6 +88,8 @@ public class SpreadsheetEngine
             }
             _evaluator.Evaluate(sheetId, recalculatedCell.Ast);
         }
+
+        return cellKeys;
     }
 
     public string GetFormattedCellText(int sheetIndex, CellKey cellKey)

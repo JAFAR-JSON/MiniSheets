@@ -62,7 +62,9 @@ public class Recalculator
         dependencyGraph.RemoveAllDependencies(cellKey);
         dependencyGraph.Add(cellKey, dependencies);
 
-        return dependencyGraph.Sort().Item1;
+        var first = dependencyGraph.Sort().Item1;
+        first.Add(cellKey);
+        return first;
     }
 
     private List<CellKey> GetDependencies(AstNode Ast)
