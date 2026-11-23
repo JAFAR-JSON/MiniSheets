@@ -190,28 +190,28 @@ public class Evaluator
         {
             case BinaryAstNodeOperator.Add:
                 return EvaluateBinaryArithmetic
-                    (sheetId, left, right
+                    (left, right
                     , (l, r) => l + r
                     , (l, r) => l + r
                     );
 
             case BinaryAstNodeOperator.Subtract:
                 return EvaluateBinaryArithmetic
-                    (sheetId, left, right
+                    (left, right
                     , (l, r) => l - r
                     , (l, r) => l - r
                     );
 
             case BinaryAstNodeOperator.Multiply:
                 return EvaluateBinaryArithmetic
-                    (sheetId, left, right
+                    (left, right
                     , ( l,  r) => l * r
                     , (l, r) => l * r
                     );
 
             case BinaryAstNodeOperator.Divide:
                 return EvaluateBinaryArithmetic
-                    (sheetId, left, right
+                    (left, right
                     , (l, r) => l / r
                     , (l, r) => l / r
                     );
@@ -219,36 +219,73 @@ public class Evaluator
             case BinaryAstNodeOperator.Join:
                 throw new UnreachableException();
 
-            // TODO: Implement comparison evaluations.
             case BinaryAstNodeOperator.Equal:
-                // return EvaluateBinaryComparison
-                //     (sheetId, left, right, (l, r) => l == r);
+                return EvaluateBinaryComparison
+                    (left, right
+                    , (o) => o switch
+                        {
+                            Ordering.EQ => true,
+                            _  => false
+                        }
+                    );
 
             case BinaryAstNodeOperator.NotEqual:
-                // return EvaluateBinaryComparison
-                //     (sheetId, left, right, (l, r) => l != r);
+                return EvaluateBinaryComparison
+                    (left, right
+                    , (o) => o switch
+                        {
+                            Ordering.EQ => false,
+                            _  => true
+                        }
+                    );
 
             case BinaryAstNodeOperator.LessThan:
-                // return EvaluateBinaryComparison
-                //     (sheetId, left, right, (l, r) => l < r);
+                return EvaluateBinaryComparison
+                    (left, right
+                    , (o) => o switch
+                        {
+                            Ordering.LT => true,
+                            _  => false
+                        }
+                    );
 
             case BinaryAstNodeOperator.GreaterThan:
-                // return EvaluateBinaryComparison
-                //     (sheetId, left, right, (l, r) => l > r);
+                return EvaluateBinaryComparison
+                    (left, right
+                    , (o) => o switch
+                        {
+                            Ordering.GT => true,
+                            _  => false
+                        }
+                    );
 
             case BinaryAstNodeOperator.LessThanEqual:
-                // return EvaluateBinaryComparison
-                //     (sheetId, left, right, (l, r) => l <= r);
+                return EvaluateBinaryComparison
+                    (left, right
+                    , (o) => o switch
+                        {
+                            Ordering.LT => true,
+                            Ordering.EQ => true,
+                            _  => false
+                        }
+                    );
 
             case BinaryAstNodeOperator.GreaterThanEqual:
-                // return EvaluateBinaryComparison
-                //     (sheetId, left, right, (l, r) => l >= r);
+                return EvaluateBinaryComparison
+                    (left, right
+                    , (o) => o switch
+                        {
+                            Ordering.GT => true,
+                            Ordering.EQ => true,
+                            _  => false
+                        }
+                    );
 
             // TODO: Implement Math.Pow() for decimals,
             // since there are no built-in functions for that that I've found.
             case BinaryAstNodeOperator.Raise:
                 return EvaluateBinaryArithmetic
-                    (sheetId, left, right
+                    (left, right
                     , (l, r) => Math.Pow(l, r)
                     , (l, r) => (decimal) Math.Pow((double) l, (double) r)
                     );
@@ -257,50 +294,8 @@ public class Evaluator
         throw new UnreachableException();
     }
 
-    private CellValue EvaluateBinaryAdd(Guid sheetId, CellValue left, CellValue right)
-    {
-        CellValue result;
-        if (ArithmeticIsEmpty(left, out result)) { return result; }
-        if (ArithmeticIsText (left, out result)) { return result; }
-        if (ArithmeticIsBool (left, out result)) { return result; }
-        if (ArithmeticIsError(left, out result)) { return result; }
-
-        var evalNumbers = CellValue (double left, double right) =>
-        {
-            var result = left + right;
-            return !double.IsInfinity(result)
-                ? new CellValue.Number(result)
-                : new CellValue.Error("#NUM!");
-        };
-
-        var evalDecimals = CellValue (decimal left, decimal right) =>
-        {
-            try
-                { return new CellValue.Decimal(checked(left + right)); }
-            catch (OverflowException)
-                { return new CellValue.Error("#NUM!"); }
-        };
-
-        return (left, right) switch
-        {
-            (CellValue.Number l, CellValue.Number r)
-                => evalNumbers(l.Value, r.Value),
-
-            (CellValue.Number l, CellValue.Decimal r)
-                => evalDecimals((decimal) l.Value, r.Value),
-
-            (CellValue.Decimal l, CellValue.Number r)
-                => evalDecimals(l.Value, (decimal) r.Value),
-
-            (CellValue.Decimal l, CellValue.Decimal r)
-                => evalDecimals(l.Value, r.Value),
-
-            _ => new CellValue.Error("#ERROR!")
-        };
-    }
-
     private CellValue EvaluateBinaryArithmetic
-        (Guid sheetId, CellValue left, CellValue right
+        (CellValue left, CellValue right
         , Func<double , double , double > doubleFunc
         , Func<decimal, decimal, decimal> decimalFunc
         )
@@ -409,44 +404,48 @@ public class Evaluator
         return false;
     }
 
-    private Ordering EvaluateBinaryComparison
-        (CellValue left, CellValue right, Func<Ordering, bool> compare)
-    {
-        return (left, right) switch
+    private CellValue EvaluateBinaryComparison
+        (CellValue left, CellValue right, Func<Ordering, bool> orderingToBool)
+        => Compare(left, right) switch
+        {
+            Ordering ordering => new CellValue.Bool(orderingToBool(ordering)),
+            _ => new CellValue.Error("#ERROR!")
+        };
+
+    private Ordering? Compare(CellValue left, CellValue right)
+        => (left, right) switch
         {
             (CellValue.Date l, CellValue.Date r)
-                => EvaluateBinaryComparisonDate(l.Value, r.Value),
+                => CompareDate(l.Value, r.Value),
 
             (CellValue.Text l, CellValue.Text r)
-                => EvaluateBinaryComparisonText(l.Value, r.Value),
+                => CompareText(l.Value, r.Value),
 
             (CellValue.Bool l, CellValue.Bool r)
-                => EvaluateBinaryComparisonBool(l.Value, r.Value),
+                => CompareBool(l.Value, r.Value),
 
             (CellValue.Number l, CellValue.Number r)
-                => EvaluateBinaryComparisonNumber(l.Value, r.Value),
+                => CompareNumber(l.Value, r.Value),
 
             (CellValue.Number l, CellValue.Decimal r)
-                => EvaluateBinaryComparisonDecimal((decimal) l.Value, r.Value),
+                => CompareDecimal((decimal) l.Value, r.Value),
 
             (CellValue.Decimal l, CellValue.Number r)
-                => EvaluateBinaryComparisonDecimal(l.Value, (decimal) r.Value),
+                => CompareDecimal(l.Value, (decimal) r.Value),
 
             (CellValue.Decimal l, CellValue.Decimal r)
-                => EvaluateBinaryComparisonDecimal(l.Value, r.Value),
+                => CompareDecimal(l.Value, r.Value),
 
-            _ => throw new UnreachableException()
-            // _ => new CellValue.Error("#ERROR!")
+            _ => null
         };
-    }
 
-    private Ordering EvaluateBinaryComparisonDate
+    private Ordering CompareDate
         (DateOnly left, DateOnly right)
     {
         throw new UnreachableException();
     }
 
-    private Ordering EvaluateBinaryComparisonText
+    private Ordering CompareText
         (string leftText, string rightText)
     {
         if (leftText.Length == rightText.Length)
@@ -470,7 +469,7 @@ public class Evaluator
         }
     }
 
-    private Ordering EvaluateBinaryComparisonBool
+    private Ordering CompareBool
         (bool leftBool, bool rightBool)
     {
         return leftBool
@@ -478,7 +477,7 @@ public class Evaluator
             : (rightBool ? Ordering.LT : Ordering.EQ );
     }
 
-    private Ordering EvaluateBinaryComparisonNumber
+    private Ordering CompareNumber
         (double leftNumber, double rightNumber)
     {
         return leftNumber == rightNumber
@@ -486,7 +485,7 @@ public class Evaluator
             : (leftNumber < rightNumber ? Ordering.LT : Ordering.GT );
     }
 
-    private Ordering EvaluateBinaryComparisonDecimal
+    private Ordering CompareDecimal
         (decimal leftDecimal, decimal rightDecimal)
     {
         return leftDecimal == rightDecimal
