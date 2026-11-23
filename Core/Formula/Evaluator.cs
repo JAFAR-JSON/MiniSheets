@@ -294,6 +294,10 @@ public class Evaluator
         throw new UnreachableException();
     }
 
+    /// <summary>
+    /// Since there are two types of numbers in this language,
+    /// Numbers and Decimals, two functions are needed for number evaluation.
+    /// </summary>
     private CellValue EvaluateBinaryArithmetic
         (CellValue left, CellValue right
         , Func<double , double , double > doubleFunc
