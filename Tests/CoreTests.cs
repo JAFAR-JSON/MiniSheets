@@ -30,7 +30,7 @@ public class CoreTests
     }
 
     [Fact]
-    public void SpreadsheetEngine_SetCellText_NoExceptions()
+    public void SpreadsheetEngine_SetSimpleArithmeticExpression_ReturnsFive()
     {
         Workbook workbook = new();
         workbook.AddSheet(new Sheet());
@@ -38,11 +38,22 @@ public class CoreTests
         try
         {
             SpreadsheetEngine spreadsheetEngine = new(workbook);
-            spreadsheetEngine.SetCellText(0, new CellKey(0, 0), "2");
-            spreadsheetEngine.SetCellText(0, new CellKey(0, 1), "3");
-            var cellKeys = spreadsheetEngine.SetCellText(0, new CellKey(0, 2), "=A1+A2");
 
-            // Assert.True(cellKeys.Count == 3, cellKeys.ToString());
+            List<CellKey> cellKeys;
+            cellKeys = spreadsheetEngine.SetCellText(0, new CellKey(0, 0), "2");
+            Console.WriteLine("CellKeys: " + cellKeys.Count.ToString());
+            cellKeys = spreadsheetEngine.SetCellText(0, new CellKey(0, 1), "3");
+            Console.WriteLine("CellKeys: " + cellKeys.Count.ToString());
+            cellKeys = spreadsheetEngine.SetCellText(0, new CellKey(0, 2), "=A1+A2");
+            Console.WriteLine("CellKeys: " + cellKeys.Count.ToString());
+
+            Cell cell = workbook.GetCell(0, new CellKey(0, 2));
+            Assert.True(cell.Value is CellValue.Number, "Cell value is not a number: " + cell.Value);
+            if (cell.Value is CellValue.Number number)
+            {
+                Assert.True(number.Value == 5, number.Value.ToString());
+            }
+            Assert.True(cellKeys.Count == 3, cellKeys.Count.ToString());
         }
         catch (Exception e)
         {

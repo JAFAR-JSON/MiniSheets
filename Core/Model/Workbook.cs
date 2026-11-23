@@ -18,4 +18,52 @@ public class Workbook
         SheetIds.Add(sheet.Id);
         return sheet.Id;
     }
+
+    public Sheet? GetSheet(int sheetIndex)
+    {
+        try
+        {
+            return GetSheet(SheetIds[0]);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
+    }
+
+    public Sheet? GetSheet(Guid sheetId)
+    {
+        try
+        {
+            return Sheets[sheetId];
+        }
+        catch (KeyNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    public Cell? GetCell(int sheetIndex, CellKey cellKey)
+    {
+        try
+        {
+            return GetCell(SheetIds[0], cellKey);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
+    }
+
+    public Cell? GetCell(Guid sheetId, CellKey cellKey)
+    {
+        try
+        {
+            return Sheets[sheetId].GetCell(cellKey);
+        }
+        catch (KeyNotFoundException)
+        {
+            return null;
+        }
+    }
 }

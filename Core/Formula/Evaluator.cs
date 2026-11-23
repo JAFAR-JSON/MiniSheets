@@ -9,9 +9,9 @@ public class Evaluator
     // Similiar to Haskell's 'Ord' typeclass.
     private enum Ordering
     {
-        LT,
-        EQ,
-        GT
+        LT, // Less Than
+        EQ, // Equal
+        GT  // Greater Than
     };
 
     private readonly Workbook _workbook;
@@ -29,25 +29,22 @@ public class Evaluator
     // TODO: Implement date lexing, parsing and evaluation for dates.
     // Recheck ALL logic according to the specification.
     public CellValue Evaluate(Guid sheetId, AstNode expr)
-    {
-        switch (expr)
+        => expr switch
         {
-            case AstNode.Literal e: return e.Value;
-            case AstNode.Unary   e: return EvaluateUnary(sheetId, e);
-            case AstNode.Binary  e: return EvaluateBinary(sheetId, e);
+            AstNode.Literal e => e.Value,
+            AstNode.Unary   e => EvaluateUnary(sheetId, e),
+            AstNode.Binary  e => EvaluateBinary(sheetId, e),
 
-            // case AstNode.Primary.Function e: return EvaluateFunction(e);
-            case AstNode.Call e: return EvaluateFunction(sheetId, e);
-            case AstNode.Primary.Text   e: return new CellValue.Text(e.Value);
-            case AstNode.Primary.Number e: return EvaluateNumber(e.Value);
-            case AstNode.Primary.Error  e: return new CellValue.Error(e.Value);
-            case AstNode.Primary.Cell   e:
-                // return _cellValueGetter.GetCellValue(sheetId, new CellKey(e.Column, e.Row));
-                return _workbook.Sheets[sheetId].GetCell(new CellKey(e.Column, e.Row)).Value;
-        }
+            // AstNode.Primary.Function e => EvaluateFunction(e),
+            AstNode.Call e => EvaluateFunction(sheetId, e),
+            AstNode.Primary.Text   e => new CellValue.Text(e.Value),
+            AstNode.Primary.Number e => EvaluateNumber(e.Value),
+            AstNode.Primary.Error  e => new CellValue.Error(e.Value),
+            AstNode.Primary.Cell   e
+                => _workbook.Sheets[sheetId].GetCell(new CellKey(e.Column, e.Row)).Value,
 
-        throw new UnreachableException();
-    }
+            _ => throw new UnreachableException()
+        };
 
     // TODO: Implement function evaluation (and function registry).
     private CellValue EvaluateFunction(Guid sheetId, AstNode.Call astCall)
@@ -96,89 +93,69 @@ public class Evaluator
         CellValue body = Evaluate(sheetId, astUnary.Body);
         UnaryAstNodeOperator unaryOperator = astUnary.Op;
 
-        switch (unaryOperator)
+        return unaryOperator switch
         {
-            case UnaryAstNodeOperator.Negate:
-                switch (body)
-                {
-                    case CellValue.Empty   v:
-                        return new CellValue.Bool(false);
+            UnaryAstNodeOperator.Negate
+                => EvaluateUnaryNegate(body),
 
-                    case CellValue.Number  v:
-                        return new CellValue.Error("#VALUE!");
+            UnaryAstNodeOperator.Plus
+                => EvaluateUnaryArithmetic(body),
 
-                    case CellValue.Decimal v:
-                        return new CellValue.Error("#VALUE!");
+            UnaryAstNodeOperator.Percentify
+                => EvaluateUnaryArithmetic(body),
 
-                    case CellValue.Text    v:
-                        return new CellValue.Error("#VALUE!");
-
-                    case CellValue.Bool    v:
-                        return v with { Value = !v.Value };
-
-                    case CellValue.Date    v:
-                        throw new UnreachableException();
-
-                    case CellValue.Error   v:
-                        return v;
-                }
-                break;
-
-            case UnaryAstNodeOperator.Plus:
-                switch (body)
-                {
-                    case CellValue.Empty   v:
-                        return new CellValue.Number(0);
-
-                    case CellValue.Number  v:
-                        return v;
-
-                    case CellValue.Decimal v:
-                        return v;
-
-                    case CellValue.Text    v:
-                        return EvaluateNumber(v.Value);
-
-                    case CellValue.Bool    v:
-                        return new CellValue.Number(v.Value ? 1 : 0);
-
-                    case CellValue.Date    v:
-                        throw new UnreachableException();
-
-                    case CellValue.Error   v:
-                        return v;
-                }
-                break;
-
-            case UnaryAstNodeOperator.Percentify:
-                switch (body)
-                {
-                    case CellValue.Empty   v:
-                        return new CellValue.Number(0);
-
-                    case CellValue.Number  v:
-                        return v;
-
-                    case CellValue.Decimal v:
-                        return v;
-
-                    case CellValue.Text    v:
-                        return EvaluateNumber(v.Value);
-
-                    case CellValue.Bool    v:
-                        return new CellValue.Number(v.Value ? 1 : 0);
-
-                    case CellValue.Date    v:
-                        throw new UnreachableException();
-
-                    case CellValue.Error   v:
-                        return v;
-                }
-                break;
-        }
-
-        throw new UnreachableException();
+            _ => throw new UnreachableException()
+        };
     }
+
+    private CellValue EvaluateUnaryNegate(CellValue body)
+        => body switch
+        {
+            CellValue.Empty v
+                => new CellValue.Bool(false),
+
+            CellValue.Number v
+                => new CellValue.Error("#VALUE!"),
+
+            CellValue.Decimal v
+                => new CellValue.Error("#VALUE!"),
+
+            CellValue.Text v
+                => new CellValue.Error("#VALUE!"),
+
+            CellValue.Bool    v
+                => v with { Value = !v.Value },
+
+            CellValue.Date    v
+                => throw new UnreachableException(),
+
+            CellValue.Error   v => v
+        };
+
+    private CellValue EvaluateUnaryArithmetic(CellValue body)
+        => body switch
+        {
+            CellValue.Empty v
+                => new CellValue.Number(0),
+
+            CellValue.Number v
+                => v,
+
+            CellValue.Decimal v
+                => v,
+
+            CellValue.Text v
+                => EvaluateNumber(v.Value),
+
+            CellValue.Bool v
+                => new CellValue.Number(v.Value ? 1 : 0),
+
+            CellValue.Date v
+                => throw new UnreachableException(),
+
+            CellValue.Error v
+                => v
+        };
 
     private CellValue EvaluateBinary(Guid sheetId, AstNode.Binary astBinary)
     {
@@ -190,105 +167,52 @@ public class Evaluator
         {
             case BinaryAstNodeOperator.Add:
                 return EvaluateBinaryArithmetic
-                    (left, right
-                    , (l, r) => l + r
-                    , (l, r) => l + r
-                    );
+                    (left, right , (l, r) => l + r , (l, r) => l + r);
 
             case BinaryAstNodeOperator.Subtract:
                 return EvaluateBinaryArithmetic
-                    (left, right
-                    , (l, r) => l - r
-                    , (l, r) => l - r
-                    );
+                    (left, right , (l, r) => l - r , (l, r) => l - r);
 
             case BinaryAstNodeOperator.Multiply:
                 return EvaluateBinaryArithmetic
-                    (left, right
-                    , ( l,  r) => l * r
-                    , (l, r) => l * r
-                    );
+                    (left, right , ( l,  r) => l * r , (l, r) => l * r);
 
             case BinaryAstNodeOperator.Divide:
                 return EvaluateBinaryArithmetic
-                    (left, right
-                    , (l, r) => l / r
-                    , (l, r) => l / r
-                    );
+                    (left, right , (l, r) => l / r , (l, r) => l / r);
 
             case BinaryAstNodeOperator.Join:
                 return EvaluateBinaryJoin(left, right);
 
             case BinaryAstNodeOperator.Equal:
                 return EvaluateBinaryComparison
-                    (left, right
-                    , (o) => o switch
-                        {
-                            Ordering.EQ => true,
-                            _  => false
-                        }
-                    );
+                    (left, right , (o) => o switch { Ordering.EQ => true, _  => false });
 
             case BinaryAstNodeOperator.NotEqual:
                 return EvaluateBinaryComparison
-                    (left, right
-                    , (o) => o switch
-                        {
-                            Ordering.EQ => false,
-                            _  => true
-                        }
-                    );
+                    (left, right , (o) => o switch { Ordering.EQ => false, _  => true });
 
             case BinaryAstNodeOperator.LessThan:
                 return EvaluateBinaryComparison
-                    (left, right
-                    , (o) => o switch
-                        {
-                            Ordering.LT => true,
-                            _  => false
-                        }
-                    );
+                    (left, right , (o) => o switch { Ordering.LT => true, _  => false });
 
             case BinaryAstNodeOperator.GreaterThan:
                 return EvaluateBinaryComparison
-                    (left, right
-                    , (o) => o switch
-                        {
-                            Ordering.GT => true,
-                            _  => false
-                        }
-                    );
+                    (left, right , (o) => o switch { Ordering.GT => true, _  => false });
 
             case BinaryAstNodeOperator.LessThanEqual:
                 return EvaluateBinaryComparison
-                    (left, right
-                    , (o) => o switch
-                        {
-                            Ordering.LT => true,
-                            Ordering.EQ => true,
-                            _  => false
-                        }
-                    );
+                    (left, right , (o) => o switch { Ordering.LT => true, Ordering.EQ => true, _  => false });
 
             case BinaryAstNodeOperator.GreaterThanEqual:
                 return EvaluateBinaryComparison
-                    (left, right
-                    , (o) => o switch
-                        {
-                            Ordering.GT => true,
-                            Ordering.EQ => true,
-                            _  => false
-                        }
-                    );
+                    (left, right , (o) => o switch { Ordering.GT => true, Ordering.EQ => true, _  => false });
 
             // TODO: Implement Math.Pow() for decimals,
             // since there are no built-in functions for that that I've found.
             case BinaryAstNodeOperator.Raise:
                 return EvaluateBinaryArithmetic
-                    (left, right
-                    , (l, r) => Math.Pow(l, r)
-                    , (l, r) => (decimal) Math.Pow((double) l, (double) r)
-                    );
+                    (left, right , (l, r) => Math.Pow(l, r) , (l, r) => (decimal) Math.Pow((double) l, (double) r));
         }
 
         throw new UnreachableException();
