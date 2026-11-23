@@ -217,7 +217,7 @@ public class Evaluator
                     );
 
             case BinaryAstNodeOperator.Join:
-                throw new UnreachableException();
+                return EvaluateBinaryJoin(left, right);
 
             case BinaryAstNodeOperator.Equal:
                 return EvaluateBinaryComparison
@@ -496,4 +496,12 @@ public class Evaluator
             ? Ordering.EQ
             : (leftDecimal < rightDecimal ? Ordering.LT : Ordering.GT );
     }
+
+    private CellValue EvaluateBinaryJoin(CellValue left, CellValue right)
+        => (left, right) switch
+        {
+            (CellValue.Text leftText, CellValue.Text rightText)
+                => new CellValue.Text(string.Join("", leftText.Value, rightText.Value)),
+            _ => new CellValue.Error("#ERROR!")
+        };
 }
