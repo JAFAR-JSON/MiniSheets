@@ -40,20 +40,44 @@ public class CoreTests
             SpreadsheetEngine spreadsheetEngine = new(workbook);
 
             List<CellKey> cellKeys;
-            cellKeys = spreadsheetEngine.SetCellText(0, new CellKey(0, 0), "2");
-            Console.WriteLine("CellKeys: " + cellKeys.Count.ToString());
-            cellKeys = spreadsheetEngine.SetCellText(0, new CellKey(0, 1), "3");
-            Console.WriteLine("CellKeys: " + cellKeys.Count.ToString());
-            cellKeys = spreadsheetEngine.SetCellText(0, new CellKey(0, 2), "=A1+A2");
-            Console.WriteLine("CellKeys: " + cellKeys.Count.ToString());
+            cellKeys = spreadsheetEngine.SetCellText(0, new CellKey(0, 1), "2");
+            cellKeys = spreadsheetEngine.SetCellText(0, new CellKey(0, 2), "3");
+            cellKeys = spreadsheetEngine.SetCellText(0, new CellKey(0, 3), "=A1+A2");
 
-            Cell cell = workbook.GetCell(0, new CellKey(0, 2));
+            Cell cell = workbook.GetCell(0, new CellKey(0, 3));
             Assert.True(cell.Value is CellValue.Number, "Cell value is not a number: " + cell.Value);
             if (cell.Value is CellValue.Number number)
             {
-                Assert.True(number.Value == 5, number.Value.ToString());
+                Assert.True(number.Value == 5, "number.Value == " + number.Value.ToString());
             }
-            Assert.True(cellKeys.Count == 3, cellKeys.Count.ToString());
+        }
+        catch (Exception e)
+        {
+            Assert.Fail(e.ToString());
+        }
+    }
+
+    [Fact]
+    public void SpreadsheetEngine_SetJoinText_ReturnsJoined()
+    {
+        Workbook workbook = new();
+        workbook.AddSheet(new Sheet());
+
+        try
+        {
+            SpreadsheetEngine spreadsheetEngine = new(workbook);
+
+            List<CellKey> cellKeys;
+            cellKeys = spreadsheetEngine.SetCellText(0, new CellKey(0, 1), "Hello");
+            cellKeys = spreadsheetEngine.SetCellText(0, new CellKey(0, 2), ", World!");
+            cellKeys = spreadsheetEngine.SetCellText(0, new CellKey(0, 3), "=A1&A2");
+
+            Cell cell = workbook.GetCell(0, new CellKey(0, 3));
+            Assert.True(cell.Value is CellValue.Text, "Cell value is not a number: " + cell.Value);
+            if (cell.Value is CellValue.Text text)
+            {
+                Assert.True(text.Value.Equals("Hello, World!"), "text.Value == " + text.Value);
+            }
         }
         catch (Exception e)
         {

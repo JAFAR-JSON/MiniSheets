@@ -82,7 +82,7 @@ public class SpreadsheetEngine
         // Console.WriteLine($"SetCellText({cellKeys.Count}, {cell.Raw}, {cell.Ast})");
         foreach (CellKey recalculatedCellKey in cellKeys)
         {
-            // Console.WriteLine("SetCellText.Key(column: {recalculatedCellKey.Column}, row: {recalculatedCellKey.Row});");
+            // Console.WriteLine($"SetCellText.Key(column: {recalculatedCellKey.Column}, row: {recalculatedCellKey.Row});");
             Cell recalculatedCell = sheet.GetCell(recalculatedCellKey);
             if (recalculatedCell.Ast is null)
             {

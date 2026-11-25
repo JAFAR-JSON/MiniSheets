@@ -63,7 +63,7 @@ public class Recalculator
         dependencyGraph.Add(cellKey, dependencies);
 
         var first = dependencyGraph.Sort().Item1;
-        first.Add(cellKey);
+        // first.Add(cellKey);
         return first;
     }
 

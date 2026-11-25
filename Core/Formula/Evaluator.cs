@@ -428,4 +428,8 @@ public class Evaluator
                 => new CellValue.Text(string.Join("", leftText.Value, rightText.Value)),
             _ => new CellValue.Error("#ERROR!")
         };
+
+    // ================================================================================
+    // Function Registry
+    // ================================================================================
 }
