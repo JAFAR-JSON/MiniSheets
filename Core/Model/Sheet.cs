@@ -17,6 +17,8 @@ public class Sheet
 
     public Sheet() { }
     public Sheet(string name) { this.Name = name; }
+    // Used when opening a file, the id has to stay the same as in the file.
+    public Sheet(Guid id, string name) { this.Id = id; this.Name = name; }
 
     public Cell GetCell(CellKey cellKey)
     {

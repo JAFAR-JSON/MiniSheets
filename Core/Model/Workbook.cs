@@ -3,14 +3,17 @@ namespace MiniSheets.Core.Model;
 public class Workbook
 {
     public Guid Id { get; } = Guid.NewGuid();
+    public Guid ActiveSheetId { get; set; } = Guid.Empty;
+    public DateTime CreatedAt  { get; set; } = DateTime.UtcNow;
+    public DateTime ModifiedAt { get; set; } = DateTime.UtcNow;
     public int SheetCount => Sheets.Count;
     public List<Guid> SheetIds { get; } = new();
     public Dictionary<Guid, Sheet>    Sheets { get; } = new();
     public Dictionary<int, CellStyle> Styles { get; } = new();
 
-    // TODO: Think about this stuff
-    // private DateTime _createdAt  { get; set; } = null;
-    // private DateTime _modifiedAt { get; set; } = null;
+    public Workbook() { }
+    // Used when opening a file, the id has to stay the same as in the file.
+    public Workbook(Guid id) { this.Id = id; }
 
     public Guid AddSheet(Sheet sheet)
     {
