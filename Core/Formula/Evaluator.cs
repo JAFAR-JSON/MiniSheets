@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using MiniSheets.Core.Model;
-using MiniSheets.Shared;
 
 namespace MiniSheets.Core.Formula;
 
@@ -127,7 +126,7 @@ public class Evaluator
                 => v with { Value = !v.Value },
 
             CellValue.Date    v
-                => throw new UnreachableException(),
+                => new CellValue.Error("#VALUE!"),
 
             CellValue.Error   v => v
         };
@@ -151,7 +150,7 @@ public class Evaluator
                 => new CellValue.Number(v.Value ? 1 : 0),
 
             CellValue.Date v
-                => throw new UnreachableException(),
+                => v,
 
             CellValue.Error v
                 => v
@@ -166,11 +165,11 @@ public class Evaluator
         switch (binaryOperator)
         {
             case BinaryAstNodeOperator.Add:
-                return EvaluateBinaryArithmetic
+                return EvaluateBinaryArithmeticWithDateHandling
                     (left, right , (l, r) => l + r , (l, r) => l + r);
 
             case BinaryAstNodeOperator.Subtract:
-                return EvaluateBinaryArithmetic
+                return EvaluateBinaryArithmeticWithDateHandling
                     (left, right , (l, r) => l - r , (l, r) => l - r);
 
             case BinaryAstNodeOperator.Multiply:
@@ -218,6 +217,19 @@ public class Evaluator
         throw new UnreachableException();
     }
 
+    private CellValue EvaluateBinaryArithmeticWithDateHandling
+        (CellValue left, CellValue right
+        , Func<double , double , double > doubleFunc
+        , Func<decimal, decimal, decimal> decimalFunc
+        )
+    {
+        CellValue result;
+        if (ArithmeticIsDate (left , out result)) { left = result; }
+        if (ArithmeticIsDate (right, out result)) { right = result; }
+
+        return EvaluateBinaryArithmetic(left, right, doubleFunc, decimalFunc);
+    }
+
     /// <summary>
     /// Since there are two types of numbers in this language,
     /// Numbers and Decimals, two functions are needed for number evaluation.
@@ -228,15 +240,18 @@ public class Evaluator
         , Func<decimal, decimal, decimal> decimalFunc
         )
     {
+        // This is quite bad in fact.
         CellValue result;
-        if (ArithmeticIsEmpty(left , out result)) { return result; }
-        if (ArithmeticIsEmpty(right, out result)) { return result; }
-        if (ArithmeticIsText (left , out result)) { return result; }
-        if (ArithmeticIsText (right, out result)) { return result; }
-        if (ArithmeticIsBool (left , out result)) { return result; }
-        if (ArithmeticIsBool (right, out result)) { return result; }
-        if (ArithmeticIsError(left , out result)) { return result; }
-        if (ArithmeticIsError(right, out result)) { return result; }
+        if (ArithmeticIsEmpty(left , out result)) { left = result; }
+        if (ArithmeticIsEmpty(right, out result)) { right = result; }
+        if (ArithmeticIsText (left , out result)) { left = result; }
+        if (ArithmeticIsText (right, out result)) { right = result; }
+        // if (ArithmeticIsDate (left , out result)) { left = result; }
+        // if (ArithmeticIsDate (right, out result)) { right = result; }
+        if (ArithmeticIsBool (left , out result)) { left = result; }
+        if (ArithmeticIsBool (right, out result)) { right = result; }
+        if (ArithmeticIsError(left , out result)) { left = result; }
+        if (ArithmeticIsError(right, out result)) { right = result; }
 
         var evalNumbers = CellValue (double left, double right) =>
         {
@@ -296,11 +311,11 @@ public class Evaluator
         return false;
     }
 
-    private bool ArithmeticIsBool(CellValue input, out CellValue output)
+    private bool ArithmeticIsDate(CellValue input, out CellValue output)
     {
-        if (input is CellValue.Bool)
+        if (input is CellValue.Date date)
         {
-            output = input;
+            output = new CellValue.Number(date.Value.DayNumber);
             return true;
         }
 
@@ -308,11 +323,11 @@ public class Evaluator
         return false;
     }
 
-    private bool ArithmeticIsDate(CellValue input, out CellValue output)
+    private bool ArithmeticIsBool(CellValue input, out CellValue output)
     {
-        if (input is CellValue.Date date)
+        if (input is CellValue.Bool)
         {
-            throw new UnreachableException();
+            output = input;
             return true;
         }
 
@@ -343,11 +358,11 @@ public class Evaluator
     private Ordering? Compare(CellValue left, CellValue right)
         => (left, right) switch
         {
-            (CellValue.Date l, CellValue.Date r)
-                => CompareDate(l.Value, r.Value),
-
             (CellValue.Text l, CellValue.Text r)
                 => CompareText(l.Value, r.Value),
+
+            (CellValue.Date l, CellValue.Date r)
+                => CompareDate(l.Value, r.Value),
 
             (CellValue.Bool l, CellValue.Bool r)
                 => CompareBool(l.Value, r.Value),
@@ -366,12 +381,6 @@ public class Evaluator
 
             _ => null
         };
-
-    private Ordering CompareDate
-        (DateOnly left, DateOnly right)
-    {
-        throw new UnreachableException();
-    }
 
     private Ordering CompareText
         (string leftText, string rightText)
@@ -395,6 +404,21 @@ public class Evaluator
         {
             return leftText.Length < rightText.Length ? Ordering.LT : Ordering.GT;
         }
+    }
+
+    private Ordering CompareDate
+        (DateOnly left, DateOnly right)
+    {
+        if (left.Year < right.Year) return Ordering.LT;
+        else if (left.Year > right.Year) return Ordering.GT;
+
+        if (left.Month < right.Month) return Ordering.LT;
+        else if (left.Month > right.Month) return Ordering.GT;
+
+        if (left.Day < right.Day) return Ordering.LT;
+        else if (left.Day > right.Day) return Ordering.GT;
+
+        return Ordering.EQ;
     }
 
     private Ordering CompareBool

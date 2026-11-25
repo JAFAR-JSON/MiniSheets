@@ -198,6 +198,61 @@ public class Lexer
         return new Token.Str(strBuilder.ToString());
     }
 
+    private Token.Date? TokenizeDate()
+    {
+        int start = _current;
+        char? character = null;
+        int? year = null;
+        int? month = null;
+        int? day = null;
+        DateOnly date;
+        
+        year = GetInteger();
+        if (year is null || (_current - start) != 4)
+        {
+            _current = start;
+            return null;
+        }
+
+        character = ConsumeChar();
+        if (character is null || character != '-')
+        {
+            _current = start;
+            return null;
+        }
+
+        month = GetInteger();
+        if (month is null || (_current - start) != 2)
+        {
+            _current = start;
+            return null;
+        }
+
+        character = ConsumeChar();
+        if (character is null || character != '-')
+        {
+            _current = start;
+            return null;
+        }
+
+        day = GetInteger();
+        if (day is null || (_current - start) != 2)
+        {
+            _current = start;
+            return null;
+        }
+
+        try
+        {
+            date = new DateOnly(year.Value, month.Value, day.Value);
+            return new Token.Date(date);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     private Token.Number? TokenizeNumber()
     {
         int start = _current;
@@ -502,12 +557,18 @@ public class Lexer
         token = TokenizeStr();
         if (token != null) return token;
         // Console.WriteLine($"DEBUG: 0 {_current}");
+
+        token = TokenizeDate(); 
+        if (token != null) return token;
+
         token = TokenizeNumber();
         if (token != null) return token;
         // Console.WriteLine($"DEBUG: 1 {_current}");
+
         token = TokenizeCell();
         if (token != null) return token;
         // Console.WriteLine($"DEBUG: 2 {_current}");
+
         identifierToken = TokenizeIdentifier();
         if (identifierToken != null)
         {

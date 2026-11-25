@@ -7,6 +7,7 @@ public abstract record Token
     // Literals
     public sealed record Identifier(string Value) : Token;
     public sealed record Str(string Value) : Token;
+    public sealed record Date(DateOnly Value) : Token;
     public sealed record Number(string Value) : Token;
     public sealed record Cell
         (int Column, bool IsColumnFixed, int Row, bool IsRowFixed) : Token;

@@ -126,6 +126,9 @@ public class Parser
             case Token.Str t:
                 return new AstNode.Primary.Text(t.Value);
 
+            case Token.Date t:
+                return new AstNode.Primary.Date(t.Value);
+
             case Token.Number t:
                 return new AstNode.Primary.Number(t.Value);
 
