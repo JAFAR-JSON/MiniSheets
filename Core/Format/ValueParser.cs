@@ -21,12 +21,12 @@ public class ValueParser
         _parser = parser;
     }
 
-    public AstNode ParseValue(string text)
+    public AstNode ParseText(string text)
     {
-        return ParseValue(CellFormat.General, text);
+        return ParseText(CellFormat.General, text);
     }
 
-    public AstNode ParseValue(CellFormat format, string text)
+    public AstNode ParseText(CellFormat format, string text)
     {
         if (text.Length >= 1 && text[0] == '\'')
         {

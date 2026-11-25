@@ -38,7 +38,7 @@ public class SpreadsheetEngine
             foreach (var cellKpv in sheet.Cells)
             {
                 Cell cell = cellKpv.Value;
-                cell.Ast = _valueParser.ParseValue(cell.Raw);
+                cell.Ast = _valueParser.ParseText(cell.Raw);
             }
 
             // Evaluate every dependency in order.
@@ -75,18 +75,21 @@ public class SpreadsheetEngine
         Cell  cell  = sheet.GetCell(cellKey);
 
         cell.Raw = text;
-        cell.Ast = _parser.ParseText(cell.Raw);
+        cell.Ast = _valueParser.ParseText(cell.Raw);
 
         // Evaluate every dependency in order.
         List<CellKey> cellKeys = _recalculator.RecalculateCell(sheetId, cellKey);
+        // Console.WriteLine($"SetCellText({cellKeys.Count}, {cell.Raw}, {cell.Ast})");
         foreach (CellKey recalculatedCellKey in cellKeys)
         {
+            // Console.WriteLine("SetCellText.Key(column: {recalculatedCellKey.Column}, row: {recalculatedCellKey.Row});");
             Cell recalculatedCell = sheet.GetCell(recalculatedCellKey);
             if (recalculatedCell.Ast is null)
             {
                 throw new UnreachableException();
             }
-            _evaluator.Evaluate(sheetId, recalculatedCell.Ast);
+            // Console.WriteLine($"SetCellText.Ast({recalculatedCell.Ast})");
+            recalculatedCell.Value = _evaluator.Evaluate(sheetId, recalculatedCell.Ast);
         }
 
         return cellKeys;
