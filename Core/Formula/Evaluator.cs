@@ -53,6 +53,36 @@ public class Evaluator
             _ => new CellValue.Error("#NAME?"),
         };
 
+    /// <summary>
+    /// Arithmetic rules as defined in section 3.5.3;
+    /// TODO: Should follow LocaleSettings.
+    /// </summary>
+    private CellValue ConvertTextByArithmeticRules(string text)
+    {
+        // We're assuming that the number here is canonized (WHICH IT SHOULD BE).
+        try
+        {
+            return new CellValue.Number
+                (Convert.ToDouble(text));
+        }
+        catch (OverflowException)
+        {
+            return new CellValue.Error("#NUM!");
+        }
+        catch (FormatException) { }
+
+        try
+        {
+            DateOnly firstDate =
+                DateOnly.ParseExact
+                    (text, "yyyy-MM-dd");
+            return new CellValue.Date(firstDate);
+        }
+        catch (FormatException) { }
+
+        return new CellValue.Error("#VALUE!");
+    }
+
     private CellValue EvaluateNumber(string canonizedString)
     {
         // We're assuming that the number here is canonized (WHICH IT SHOULD BE).
@@ -146,7 +176,7 @@ public class Evaluator
                 => v,
 
             CellValue.Text v
-                => EvaluateNumber(v.Value),
+                => ConvertTextByArithmeticRules(v.Value),
 
             CellValue.Bool v
                 => new CellValue.Number(v.Value ? 1 : 0),
@@ -466,7 +496,7 @@ public class Evaluator
 
         foreach (var argument in arguments)
         {
-            CellValue result = Evaluate(sheetId, argument);
+            CellValue result = EvaluateUnaryArithmetic(Evaluate(sheetId, argument));
 
             switch (result)
             {
@@ -479,18 +509,198 @@ public class Evaluator
                     decimalWasFound = true;      
                     break;
 
+                case CellValue.Error  v:
+                    return v;
+
+                // TODO: Think about this.
                 default:
-                    return new CellValue.Error("#ERROR!");
+                    return new CellValue.Error("#VALUE!");
             }
         }
 
-        if (decimalWasFound)
-        {
-            return new CellValue.Decimal(total);
-        }
-        else
-        {
-            return new CellValue.Number((double) total);
-        }
+        return decimalWasFound
+            ? new CellValue.Decimal(total)
+            : new CellValue.Number((double) total);
     }
+
+    private CellValue EvaluateFunctionAverage(Guid sheetId, AstNode[] arguments)
+    {
+        int numberOfItems = 0;
+        decimal total = 0;
+        bool decimalWasFound = false;
+
+        foreach (var argument in arguments)
+        {
+            ++numberOfItems;
+
+            CellValue result = EvaluateUnaryArithmetic(Evaluate(sheetId, argument));
+
+            switch (result)
+            {
+                case CellValue.Number v:
+                    total += (decimal) v.Value;
+                    break;
+
+                case CellValue.Decimal v:
+                    total += v.Value;
+                    decimalWasFound = true;      
+                    break;
+
+                case CellValue.Error  v:
+                    return v;
+
+                // TODO: Think about this.
+                default:
+                    return new CellValue.Error("#VALUE!");
+            }
+        }
+
+        return decimalWasFound
+            ? new CellValue.Decimal(total / numberOfItems)
+            : new CellValue.Number((double) total / numberOfItems);
+    }
+
+    // TODO: If something breaks here, redo these two functions (min and max),
+    // because they are BAD.
+    private CellValue EvaluateFunctionMin(Guid sheetId, AstNode[] arguments)
+    {
+        if (arguments.Length == 0)
+        {
+            return new CellValue.Number(0);
+        }
+        else if (arguments.Length == 1)
+        {
+            return EvaluateUnaryArithmetic
+                (Evaluate(sheetId, arguments[0]));
+        }
+
+        CellValue currentMinimum = EvaluateUnaryArithmetic
+            (Evaluate(sheetId, arguments[0]));
+        if (currentMinimum is CellValue.Error)
+        {
+            return currentMinimum;
+        }
+
+        foreach (var argument in arguments)
+        {
+            CellValue converted = EvaluateUnaryArithmetic
+                (Evaluate(sheetId, arguments[0]));
+
+            switch (converted)
+            {
+                case CellValue.Error v:
+                    return v;
+
+                case CellValue.Date v:
+                    if (currentMinimum is CellValue.Date minimumDate)
+                    {
+                        if (v.Value.DayNumber < minimumDate.Value.DayNumber)
+                        {
+                            currentMinimum = v;
+                        }
+                    }
+                    else
+                    {
+                        return new CellValue.Error("#VALUE!");
+                    }
+                    break;
+
+                default:
+                    var extractedMinimum   = ExtractNumericValue(currentMinimum);
+                    if (extractedMinimum is null)
+                    {
+                        return new CellValue.Error("#VALUE!");
+                    }
+                    var extractedConverted = ExtractNumericValue(converted);
+                    if (extractedMinimum is null)
+                    {
+                        return new CellValue.Error("#VALUE!");
+                    }
+
+                    if (extractedConverted < extractedMinimum)
+                    {
+                        currentMinimum = converted;
+                    }
+                    break;
+
+            }
+        }
+
+        return currentMinimum;
+    }
+
+    private CellValue EvaluateFunctionMax(Guid sheetId, AstNode[] arguments)
+    {
+        if (arguments.Length == 0)
+        {
+            return new CellValue.Number(0);
+        }
+        else if (arguments.Length == 1)
+        {
+            return EvaluateUnaryArithmetic
+                (Evaluate(sheetId, arguments[0]));
+        }
+
+        CellValue currentMaximum = EvaluateUnaryArithmetic
+            (Evaluate(sheetId, arguments[0]));
+        if (currentMaximum is CellValue.Error)
+        {
+            return currentMaximum;
+        }
+
+        foreach (var argument in arguments)
+        {
+            CellValue converted = EvaluateUnaryArithmetic
+                (Evaluate(sheetId, arguments[0]));
+
+            switch (converted)
+            {
+                case CellValue.Error v:
+                    return v;
+
+                case CellValue.Date v:
+                    if (currentMaximum is CellValue.Date maximumDate)
+                    {
+                        if (v.Value.DayNumber > maximumDate.Value.DayNumber)
+                        {
+                            currentMaximum = v;
+                        }
+                    }
+                    else
+                    {
+                        return new CellValue.Error("#VALUE!");
+                    }
+                    break;
+
+                default:
+                    var extractedMaximum   = ExtractNumericValue(currentMaximum);
+                    if (extractedMaximum is null)
+                    {
+                        return new CellValue.Error("#VALUE!");
+                    }
+                    var extractedConverted = ExtractNumericValue(converted);
+                    if (extractedMaximum is null)
+                    {
+                        return new CellValue.Error("#VALUE!");
+                    }
+
+                    if (extractedConverted < extractedMaximum)
+                    {
+                        currentMaximum = converted;
+                    }
+                    break;
+
+            }
+        }
+
+        return currentMaximum;
+    }
+
+    private decimal? ExtractNumericValue(CellValue value)
+        => value switch
+        {
+            CellValue.Number  v => (decimal) v.Value,
+            CellValue.Decimal v => v.Value,
+            _ => null
+        };
 }
