@@ -21,4 +21,38 @@ public class Workbook
         SheetIds.Add(sheet.Id);
         return sheet.Id;
     }
+
+    // public Sheet? GetSheet(int sheetIndex)
+    // {
+    //     try
+    //     {
+    //         return GetSheet(SheetIds[0]);
+    //     }
+    //     catch (ArgumentOutOfRangeException)
+    //     {
+    //         return null;
+    //     }
+    // }
+    //
+    // public Sheet? GetSheet(Guid sheetId)
+    // {
+    //     try
+    //     {
+    //         return Sheets[sheetId];
+    //     }
+    //     catch (KeyNotFoundException)
+    //     {
+    //         return null;
+    //     }
+    // }
+
+    public Cell GetCell(int sheetIndex, CellKey cellKey)
+    {
+        return GetCell(SheetIds[0], cellKey);
+    }
+
+    public Cell GetCell(Guid sheetId, CellKey cellKey)
+    {
+        return Sheets[sheetId].GetCell(cellKey);
+    }
 }

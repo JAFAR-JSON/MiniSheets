@@ -9,7 +9,8 @@ public abstract record AstNode
     public sealed record Literal(CellValue Value) : AstNode;
     public abstract record Primary() : AstNode
     {
-        public sealed record Identifier(string Value) : Primary;
+        // public sealed record Identifier(string Value) : Primary;
+
         public sealed record Text(string Value) : Primary;
         public sealed record Number(string Value) : Primary;
         public sealed record Error(string Value) : Primary;
@@ -17,6 +18,7 @@ public abstract record AstNode
             (int Column, bool isColumnFixed, int Row, bool isRowFixed) : Primary;
     }
 
+    public sealed record Call(string Name, AstNode[] Arguments) : AstNode;
     public sealed record Unary(UnaryAstNodeOperator Op, AstNode Body) : AstNode;
     public sealed record Binary(BinaryAstNodeOperator Op, AstNode Left, AstNode Right) : AstNode;
 

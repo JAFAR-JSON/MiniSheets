@@ -10,7 +10,7 @@ public class SpreadsheetEngine
 {
     private readonly Workbook _workbook;
     private readonly Recalculator _recalculator;
-    // private readonly FunctionRegistry _functionRegistry;
+    private readonly FunctionRegistry _functionRegistry;
     private readonly StyleManager _styleManager;
     private readonly Evaluator _evaluator;
     private readonly Parser _parser;
@@ -21,8 +21,9 @@ public class SpreadsheetEngine
     {
         _workbook = workbook;
         _recalculator = new Recalculator(_workbook);
+        _functionRegistry = new FunctionRegistry();
         _styleManager = new StyleManager(_workbook);
-        _evaluator = new Evaluator(_workbook, _styleManager);
+        _evaluator = new Evaluator(_workbook, _styleManager, _functionRegistry);
         _parser = new Parser();
         _valueParser = new ValueParser(_parser);
         _valueFormatter = new ValueFormatter(_styleManager);
@@ -37,11 +38,8 @@ public class SpreadsheetEngine
             foreach (var cellKpv in sheet.Cells)
             {
                 Cell cell = cellKpv.Value;
-                cell.Ast = _valueParser.ParseValue(cell.Raw);
+                cell.Ast = _valueParser.ParseText(cell.Raw);
             }
-
-            var dependencyGraph =
-                _recalculator.SheetDependencies[sheetId];
 
             // Evaluate every dependency in order.
             List<CellKey> cellKeys = _recalculator.CalculateSheet(sheetId);
@@ -60,32 +58,41 @@ public class SpreadsheetEngine
     /// <exception cref="ArgumentOutOfRange">
     /// When accessing a non-existant sheet.
     /// </exception>
-    public void SetCellText(int sheetIndex, CellKey cellKey, string text)
+    public List<CellKey> SetCellText(int sheetIndex, CellKey cellKey, string text)
     {
         Guid sheetId = _workbook.SheetIds[sheetIndex];
 
-        SetCellText(sheetId, cellKey, text);
+        return SetCellText(sheetId, cellKey, text);
     }
 
-    public void SetCellText(Guid sheetId, CellKey cellKey, string text)
+    /// <summary>
+    /// TODO: List<CellKey> shoould return a list of all changed CellKey.
+    /// Currently, it returns EVERY cell.
+    /// </summary>
+    public List<CellKey> SetCellText(Guid sheetId, CellKey cellKey, string text)
     {
         Sheet sheet = _workbook.Sheets[sheetId];
         Cell  cell  = sheet.GetCell(cellKey);
 
         cell.Raw = text;
-        cell.Ast = _parser.ParseText(cell.Raw);
+        cell.Ast = _valueParser.ParseText(cell.Raw);
 
         // Evaluate every dependency in order.
         List<CellKey> cellKeys = _recalculator.RecalculateCell(sheetId, cellKey);
+        // Console.WriteLine($"SetCellText({cellKeys.Count}, {cell.Raw}, {cell.Ast})");
         foreach (CellKey recalculatedCellKey in cellKeys)
         {
+            // Console.WriteLine($"SetCellText.Key(column: {recalculatedCellKey.Column}, row: {recalculatedCellKey.Row});");
             Cell recalculatedCell = sheet.GetCell(recalculatedCellKey);
             if (recalculatedCell.Ast is null)
             {
                 throw new UnreachableException();
             }
-            _evaluator.Evaluate(sheetId, recalculatedCell.Ast);
+            // Console.WriteLine($"SetCellText.Ast({recalculatedCell.Ast})");
+            recalculatedCell.Value = _evaluator.Evaluate(sheetId, recalculatedCell.Ast);
         }
+
+        return cellKeys;
     }
 
     public string GetFormattedCellText(int sheetIndex, CellKey cellKey)
