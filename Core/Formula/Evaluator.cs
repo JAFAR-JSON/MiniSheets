@@ -47,9 +47,11 @@ public class Evaluator
 
     // TODO: Implement function evaluation (and function registry).
     private CellValue EvaluateFunction(Guid sheetId, AstNode.Call astCall)
-    {
-        throw new UnreachableException();
-    }
+        => astCall.Name switch
+        {
+            "SUM" => EvaluateFunctionSum(sheetId, astCall.Arguments),
+            _ => new CellValue.Error("#NAME?"),
+        };
 
     private CellValue EvaluateNumber(string canonizedString)
     {
@@ -454,6 +456,41 @@ public class Evaluator
         };
 
     // ================================================================================
-    // Function Registry
+    // NOT_SPECIFICATION: Function Registry has not been implemented as a seperate module.
     // ================================================================================
+
+    private CellValue EvaluateFunctionSum(Guid sheetId, AstNode[] arguments)
+    {
+        decimal total = 0;
+        bool decimalWasFound = false;
+
+        foreach (var argument in arguments)
+        {
+            CellValue result = Evaluate(sheetId, argument);
+
+            switch (result)
+            {
+                case CellValue.Number v:
+                    total += (decimal) v.Value;
+                    break;
+
+                case CellValue.Decimal v:
+                    total += v.Value;
+                    decimalWasFound = true;      
+                    break;
+
+                default:
+                    return new CellValue.Error("#ERROR!");
+            }
+        }
+
+        if (decimalWasFound)
+        {
+            return new CellValue.Decimal(total);
+        }
+        else
+        {
+            return new CellValue.Number((double) total);
+        }
+    }
 }
