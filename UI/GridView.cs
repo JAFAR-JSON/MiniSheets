@@ -260,12 +260,12 @@ internal class GridView : Border
                 EditMode(cell, rowIndex, columnIndex);
                 e.Handled = true;
             }
-            else if (e.Key == Key.C && IsControlPressed(e))
+            else if (e.Source == cell && e.Key == Key.C && IsControlPressed(e))
             {
                 _ = CopyToClipboard(GetFormattedCellText(cell));
                 e.Handled = true;
             }
-            else if (e.Key == Key.V && IsControlPressed(e))
+            else if (e.Source == cell && e.Key == Key.V && IsControlPressed(e))
             {
                 _ = PasteFromClipboard();
                 e.Handled = true;
@@ -286,7 +286,7 @@ internal class GridView : Border
     private void EditMode(Border cell, int rowIndex, int columnIndex)
     {
         if (_activeTextBox != null)
-                return;
+            return;
 
         var textBox = new TextBox
         {
@@ -316,6 +316,11 @@ internal class GridView : Border
             {
                 textBox.Text = "";
                 FinishEditing();
+                keyEvent.Handled = true;
+            }
+            else if (keyEvent.Key == Key.C && IsControlPressed(keyEvent) && textBox.SelectedText != null)
+            {
+                _ = CopyToClipboard(textBox.SelectedText);
                 keyEvent.Handled = true;
             }
             else if (keyEvent.Key == Key.C && IsControlPressed(keyEvent))
@@ -649,7 +654,12 @@ internal class GridView : Border
 
     private async Task PasteFromClipboard()
     {
-        UpdateSelectedCellContent(await Clipboard.PasteAsync());
+        if (_selectedCell == null)
+            return;
+
+        var existingText = GetFormattedCellText(_selectedCell);
+        var pastedText = await Clipboard.PasteAsync();
+        UpdateSelectedCellContent(existingText + pastedText);
     }
 
     private void EnterOrArrowPressedOnCell(

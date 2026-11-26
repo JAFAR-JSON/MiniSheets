@@ -80,7 +80,7 @@ class SheetTabs : Border
         var newSheet = new Sheet();
         _workbook.AddSheet(newSheet);
 
-        var newSheetButton = CreateSheetButton($"Sheet{_workbook.Sheets}");
+        var newSheetButton = CreateSheetButton($"Sheet{_workbook.SheetIds.Count}");
 
         if (Child is StackPanel stackPanel && stackPanel.Children[0] is StackPanel sheetButtonsPanel)
         {

@@ -105,7 +105,13 @@ public class FormulaBar : Border
         if ((keyEvent.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) == 0)
             return false;
 
-        if (keyEvent.Key == Key.C)
+        if (keyEvent.Key == Key.C && textBox.SelectedText != null)
+        {
+            _ = Clipboard.CopyAsync(textBox.SelectedText);
+            keyEvent.Handled = true;
+            return true;
+        }
+        else if (keyEvent.Key == Key.C)
         {
             _ = Clipboard.CopyAsync(textBox.Text ?? string.Empty);
             keyEvent.Handled = true;
@@ -124,7 +130,7 @@ public class FormulaBar : Border
 
     private static async Task PasteTextAsync(TextBox textBox)
     {
-        textBox.Text = await Clipboard.PasteAsync();
+        textBox.Text += await Clipboard.PasteAsync();
     }
 
     private TextBox CreateNameBox()
