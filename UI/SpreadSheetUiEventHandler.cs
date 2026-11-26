@@ -10,7 +10,6 @@ internal class SpreadSheetUiEventHandler
     private readonly ToolBar _toolBar;
     private readonly MenuBar _menuBar;
     private readonly StatusBar _statusBar;
-    private ExportCSVScreen exportCSVScreen;
 
     internal SpreadSheetUiEventHandler(GridView gridView, FormulaBar formulaBar, MenuBar menuBar, ToolBar toolBar, StatusBar statusBar)
     {
@@ -90,7 +89,7 @@ internal class SpreadSheetUiEventHandler
 
     private void ExportCsvClicked(object? sender, EventArgs e)
     {
-        exportCSVScreen = new ExportCSVScreen();
+        var exportCSVScreen = new ExportCSVScreen();
         exportCSVScreen.Show();
     }
 
