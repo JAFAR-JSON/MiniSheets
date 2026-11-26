@@ -10,6 +10,10 @@ internal sealed class MenuBar : Border
 {
     public event EventHandler? BordersClicked;
 
+    public event EventHandler? CopyButtonClicked;
+    public event EventHandler? PasteButtonClicked;
+    public event EventHandler? CutButtonClicked;
+
     public MenuBar()
     {
         Padding = new Thickness(6, 2);
@@ -44,6 +48,19 @@ internal sealed class MenuBar : Border
             {
                 menuItem.Click += (_, _) => BordersClicked?.Invoke(this, EventArgs.Empty);
             }
+            else if (item == "Copy")
+            {
+                menuItem.Click += (_, _) => HandleClipboardAction("Copy");
+            }
+            else if (item == "Paste")
+            {
+                menuItem.Click += (_, _) => HandleClipboardAction("Paste");
+            }
+            else if (item == "Cut")
+            {
+                menuItem.Click += (_, _) => HandleClipboardAction("Cut");
+            }
+
 
             menu.Items.Add(menuItem);
             index++;
@@ -59,5 +76,21 @@ internal sealed class MenuBar : Border
             BorderThickness = new Thickness(0),
             Flyout = menu
         };
+    }
+    
+    private void HandleClipboardAction(string action)
+    {
+        switch (action)
+        {
+            case "Copy":
+                CopyButtonClicked?.Invoke(this, EventArgs.Empty);
+                break;
+            case "Paste":
+                PasteButtonClicked?.Invoke(this, EventArgs.Empty);
+                break;
+            case "Cut":
+                CutButtonClicked?.Invoke(this, EventArgs.Empty);
+                break;
+        }
     }
 }

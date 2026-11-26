@@ -8,24 +8,28 @@ internal class SpreadSheetUiEventHandler
     private readonly GridView _gridView;
     private readonly FormulaBar _formulaBar;
     private readonly ToolBar _toolBar;
+    private readonly MenuBar _menuBar;
 
     internal SpreadSheetUiEventHandler(GridView gridView, FormulaBar formulaBar, MenuBar menuBar, ToolBar toolBar)
     {
         _gridView = gridView;
         _formulaBar = formulaBar;
         _toolBar = toolBar;
+        _menuBar = menuBar;
 
-        // Subscribe to events
         // When the formula bar content changes, update the selected cell content in the grid view
         _formulaBar.ChangeGridCellContent += UpdateSelectedCellContent;
+        _formulaBar.EnterPressed += MoveDownToNextCell;
+        _formulaBar.GoToCell += SendGridToCell;
         // When the selected cell changes, update both formula-bar fields
         _gridView.SelectedCellChanged += UpdateFormulaBar;
         // When the "Borders" menu item is clicked, apply a border to the selected cell in the grid view
-        menuBar.BordersClicked += ApplyBorderToSelectedCell;
+        _menuBar.BordersClicked += ApplyBorderToSelectedCell;
+        _menuBar.CopyButtonClicked += CopySelectedCellContent;
+        _menuBar.PasteButtonClicked += PasteIntoSelectedCell;
+        _menuBar.CutButtonClicked += CutSelectedCellContent;
 
-        _formulaBar.EnterPressed += MoveDownToNextCell;
-
-        _formulaBar.GoToCell += SendGridToCell;
+       
 
         _toolBar.CopyButtonClicked += CopySelectedCellContent;
         _toolBar.PasteButtonClicked += PasteIntoSelectedCell;
