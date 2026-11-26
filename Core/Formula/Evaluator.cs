@@ -16,14 +16,12 @@ public class Evaluator
 
     private readonly Workbook _workbook;
     private readonly StyleManager _styleManager;
-    private readonly FunctionRegistry _functionRegistry;
 
     public Evaluator
-        (Workbook workbook, StyleManager styleManager, FunctionRegistry functionRegistry)
+        (Workbook workbook, StyleManager styleManager)
     {
         _workbook = workbook;
         _styleManager = styleManager;
-        _functionRegistry = functionRegistry;
     }
 
     /// <summary>
@@ -50,15 +48,23 @@ public class Evaluator
         };
     
     private CellValue GetCellValue(Guid sheetId, int column, int row)
-        => GetCellValue(sheetId, column, row);
+        => GetCellValue(sheetId, new CellKey(column, row));
 
     private CellValue GetCellValue(Guid sheetId, CellKey key)
         => _workbook.Sheets[sheetId].GetCell(key).Value;
 
+    // TODO: Implement the rest of the function registry functions,
+    // and test out the existing ones.
     private CellValue EvaluateFunction(Guid sheetId, AstNode.Call astCall)
         => astCall.Name switch
         {
-            "SUM" => EvaluateFunctionSum(sheetId, astCall.Arguments),
+            "SUM"     => EvaluateFunctionSum     (sheetId, astCall.Arguments),
+            "AVERAGE" => EvaluateFunctionAverage (sheetId, astCall.Arguments),
+            "MIN"     => EvaluateFunctionMin     (sheetId, astCall.Arguments),
+            "MAX"     => EvaluateFunctionMax     (sheetId, astCall.Arguments),
+            "COUNT"   => EvaluateFunctionCount   (sheetId, astCall.Arguments),
+            "ROUND"   => EvaluateFunctionRound   (sheetId, astCall.Arguments),
+            "ABS"     => EvaluateFunctionAbs     (sheetId, astCall.Arguments),
             _ => new CellValue.Error("#NAME?"),
         };
 
@@ -795,9 +801,9 @@ public class Evaluator
     {
         CanonRange canonRange = RangeCanonizer.GetCanonRange(range);
 
-        for (int i = canonRange.ColumnStart; i < canonRange.ColumnLength; ++i)
+        for (int i = canonRange.ColumnStart; i < canonRange.ColumnStart + canonRange.ColumnLength; ++i)
         {
-            for (int j = canonRange.RowStart; j < canonRange.RowLength; ++j)
+            for (int j = canonRange.RowStart; j < canonRange.RowStart + canonRange.RowLength; ++j)
             {
                 AstNode? node = _workbook.GetCell(sheetId, new CellKey(i, j)).Ast;
                 if (node is null)
