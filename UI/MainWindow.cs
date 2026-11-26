@@ -18,14 +18,16 @@ internal sealed class MainWindow : Window
 
         var menuBar = new MenuBar();
         var formulaBar = new FormulaBar();
+        var toolBar = new ToolBar();
 
         var sheet = new Sheet();
         var gridView = new GridView(sheet);
-        var uiHandler = new SpreadSheetUiEventHandler(gridView, formulaBar, menuBar);
+        var uiHandler = new SpreadSheetUiEventHandler(gridView, formulaBar, menuBar, toolBar);
 
         var workbook = new Workbook();
 
         DockPanel.SetDock(menuBar, Dock.Top);
+        DockPanel.SetDock(toolBar, Dock.Top);
         DockPanel.SetDock(formulaBar, Dock.Top);
 
         var footer = new DockPanel
@@ -71,10 +73,7 @@ internal sealed class MainWindow : Window
                     Margin = new Thickness(0),
                     Padding = new Thickness(0)
                 },
-                new ToolBar()
-                {
-                    [DockPanel.DockProperty] = Dock.Top
-                },
+                toolBar,
                 new Separator
                 {
                     [DockPanel.DockProperty] = Dock.Top,

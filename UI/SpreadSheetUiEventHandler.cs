@@ -7,11 +7,13 @@ internal class SpreadSheetUiEventHandler
 {
     private readonly GridView _gridView;
     private readonly FormulaBar _formulaBar;
+    private readonly ToolBar _toolBar;
 
-    internal SpreadSheetUiEventHandler(GridView gridView, FormulaBar formulaBar, MenuBar menuBar)
+    internal SpreadSheetUiEventHandler(GridView gridView, FormulaBar formulaBar, MenuBar menuBar, ToolBar toolBar)
     {
         _gridView = gridView;
         _formulaBar = formulaBar;
+        _toolBar = toolBar;
 
         // Subscribe to events
         // When the formula bar content changes, update the selected cell content in the grid view
@@ -24,6 +26,10 @@ internal class SpreadSheetUiEventHandler
         _formulaBar.EnterPressed += MoveDownToNextCell;
 
         _formulaBar.GoToCell += SendGridToCell;
+
+        _toolBar.CopyButtonClicked += CopySelectedCellContent;
+        _toolBar.PasteButtonClicked += PasteIntoSelectedCell;
+        _toolBar.CutButtonClicked += CutSelectedCellContent;
     }
 
     private void UpdateSelectedCellContent(object? sender, string text)
@@ -51,4 +57,18 @@ internal class SpreadSheetUiEventHandler
         _gridView.GoToCell(e.columnName, e.rowName);
     }
 
+    private void CopySelectedCellContent(object? sender, EventArgs e)
+    {
+        _ = _gridView.CopySelectedCellToClipboardAsync();
+    }
+
+    private void PasteIntoSelectedCell(object? sender, EventArgs e)
+    {
+        _ = _gridView.PasteIntoSelectedCellAsync();
+    }
+
+    private void CutSelectedCellContent(object? sender, EventArgs e)
+    {
+        _ = _gridView.CutSelectedCellAsync();
+    }
 }
