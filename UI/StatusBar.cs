@@ -46,4 +46,12 @@ public class StatusBar : Border
         Grid.SetColumn(label, column);
         return label;
     }
+
+    public void SetStatusText(string text)
+    {
+        if (Child is Grid grid && grid.Children[0] is TextBlock statusLabel)
+        {
+            statusLabel.Text = text;
+        }
+    }
 }

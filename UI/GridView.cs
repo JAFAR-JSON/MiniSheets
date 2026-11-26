@@ -47,6 +47,7 @@ internal class GridView : Border
     private readonly List<Border> _highlightedCells = new();
 
     public event EventHandler<(string cellName, string text)>? SelectedCellChanged;
+    public event EventHandler<string>? StatusTextChanged;
 
     public GridView(Sheet sheet)
     {
@@ -297,6 +298,7 @@ internal class GridView : Border
         _activeTextBox = textBox;
         _editingCell = cell;
         textBox.Focus();
+        StatusTextChanged?.Invoke(this, "Enter");
         textBox.CaretIndex = textBox.Text?.Length ?? 0;
         textBox.LostFocus += (_, _) => FinishEditing();
         textBox.TextChanged += (_, _) => NotifySelectedCellChanged(cell);
@@ -624,6 +626,7 @@ internal class GridView : Border
         cellBorder.BorderBrush = new SolidColorBrush(Color.Parse("#252627"));
         cellBorder.BorderThickness = new Thickness(2);
         NotifySelectedCellChanged(cellBorder);
+        StatusTextChanged?.Invoke(this, "Ready");
     }
 
     private void NotifySelectedCellChanged(Border cell)
@@ -877,6 +880,7 @@ internal class GridView : Border
 
             editingCell.Child = cellContent;
         }
+        StatusTextChanged?.Invoke(this, "Ready");
 
         CellClicked(editingCell);
         _activeTextBox = null;

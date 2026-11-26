@@ -19,10 +19,11 @@ internal sealed class MainWindow : Window
         var menuBar = new MenuBar();
         var formulaBar = new FormulaBar();
         var toolBar = new ToolBar();
+        var statusBar = new StatusBar();
 
         var sheet = new Sheet();
         var gridView = new GridView(sheet);
-        var uiHandler = new SpreadSheetUiEventHandler(gridView, formulaBar, menuBar, toolBar);
+        var uiHandler = new SpreadSheetUiEventHandler(gridView, formulaBar, menuBar, toolBar, statusBar);
 
         var workbook = new Workbook();
 
@@ -54,10 +55,7 @@ internal sealed class MainWindow : Window
             Margin = new Thickness(0),
             Padding = new Thickness(0)
         });
-        footer.Children.Add(new StatusBar
-        {
-            [DockPanel.DockProperty] = Dock.Bottom
-        });
+        footer.Children.Add(statusBar);
 
         Content = new DockPanel
         {

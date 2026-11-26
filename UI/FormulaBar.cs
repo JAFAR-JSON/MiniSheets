@@ -19,6 +19,7 @@ public class FormulaBar : Border
     public event EventHandler<string>? ChangeGridCellContent;
     public event EventHandler? EnterPressed;
     public event EventHandler<(string firstChar, string restOfCellName)>? GoToCell;
+    public event EventHandler<string>? StatusTextChanged;
 
     public FormulaBar()
     {
@@ -51,6 +52,12 @@ public class FormulaBar : Border
             }
         }, RoutingStrategies.Bubble, handledEventsToo: true);
 
+
+
+        _formulaTextBox.GotFocus += (_, _) =>
+        {
+            StatusTextChanged?.Invoke(this, "Edit");
+        };
         _formulaTextBox.TextChanged += (_, _) =>
         {
             if (_updatingFromSelection)
