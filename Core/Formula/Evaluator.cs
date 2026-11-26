@@ -118,19 +118,19 @@ public class Evaluator
         return unaryOperator switch
         {
             UnaryAstNodeOperator.Negate
-                => EvaluateUnaryNegate(body),
+                => AttemptConvertByNegate(body),
 
             UnaryAstNodeOperator.Plus
-                => EvaluateUnaryArithmetic(body),
+                => AttemptConvertByArithmetic(body),
 
             UnaryAstNodeOperator.Percentify
-                => EvaluateUnaryArithmetic(body),
+                => AttemptConvertByArithmetic(body),
 
             _ => throw new UnreachableException()
         };
     }
 
-    private CellValue EvaluateUnaryNegate(CellValue body)
+    private CellValue AttemptConvertByNegate(CellValue body)
         => body switch
         {
             CellValue.Empty v
@@ -154,7 +154,7 @@ public class Evaluator
             CellValue.Error   v => v
         };
 
-    private CellValue EvaluateUnaryArithmetic(CellValue body)
+    private CellValue AttemptConvertByArithmetic(CellValue body)
         => body switch
         {
             CellValue.Empty v
@@ -177,6 +177,33 @@ public class Evaluator
 
             CellValue.Error v
                 => v
+        };
+
+    private CellValue AttemptConvertEmptyByArithmetic(CellValue body)
+        => body switch
+        {
+            CellValue.Empty v
+                => new CellValue.Number(0),
+
+            _ => body
+        };
+
+    private CellValue AttemptConvertBoolByArithmetic(CellValue body)
+        => body switch
+        {
+            CellValue.Bool v
+                => new CellValue.Number(v.Value ? 1 : 0),
+
+            _ => body
+        };
+
+    private CellValue AttemptConvertTextByArithmetic(CellValue body)
+        => body switch
+        {
+            CellValue.Text v
+                => ConvertTextByArithmeticRules(v.Value),
+
+            _ => body
         };
 
     private CellValue EvaluateBinary(Guid sheetId, AstNode.Binary astBinary)
@@ -670,9 +697,99 @@ public class Evaluator
         }
     }
 
-    private CellValue EvaluateArgument(Guid sheetId, AstNode argument)
-        => EvaluateUnaryArithmetic(Evaluate(sheetId, argument));
+    private CellValue EvaluateFunctionCount(Guid sheetId, AstNode[] arguments)
+    {
+        if (arguments.Length == 0) return new CellValue.Error("#ERROR!");
 
+        int count = 0;
+
+        foreach (var argument in arguments)
+        {
+            if (argument is AstNode.Primary.Range r)
+            {
+                var cellValues = EvaluateRange(sheetId, r);
+
+                foreach (CellValue cellValue in cellValues)
+                {
+                    if (cellValue is CellValue.Error) return cellValue;
+
+                    count += cellValue switch
+                    {
+                        CellValue.Number  => 1,
+                        CellValue.Decimal => 1,
+                        CellValue.Date    => 1,
+                        _ => 0
+                    };
+                }
+                continue;
+            }
+
+            count += EvaluateArgument(sheetId, argument) switch
+            {
+                CellValue.Number  => 1,
+                CellValue.Decimal => 1,
+                CellValue.Date    => 1,
+                _ => 0
+            };
+        }
+
+        return new CellValue.Number((double) count);
+    }
+
+    private CellValue EvaluateFunctionRound(Guid sheetId, AstNode[] arguments)
+    {
+        if (arguments.Length != 2) return new CellValue.Error("#ERROR!");
+
+        decimal numberToRound = 0;
+        int placesToRound = 0;
+        bool isDecimalFound = false;
+
+        CellValue number = Evaluate(sheetId, arguments[0]);
+        switch (number)
+        {
+            case CellValue.Number   v: numberToRound = (decimal) v.Value; break;
+            case CellValue.Decimal  v:
+                numberToRound = v.Value;
+                isDecimalFound = true;
+                break;
+
+            default: return new CellValue.Error("#VALUE!");
+        };
+
+        CellValue places = Evaluate(sheetId, arguments[0]);
+        switch (places)
+        {
+            case CellValue.Number   v: placesToRound = (int)  double.Round(v.Value); break;
+            case CellValue.Decimal  v: placesToRound = (int) decimal.Round(v.Value); break;
+
+            default: return new CellValue.Error("#VALUE!");
+        };
+
+        return isDecimalFound
+            ? new CellValue.Decimal(decimal.Round(numberToRound, placesToRound))
+            : new CellValue.Number ((double) decimal.Round(numberToRound, placesToRound));
+    }
+
+    private CellValue EvaluateFunctionAbs(Guid sheetId, AstNode[] arguments)
+    {
+        if (arguments.Length != 1) return new CellValue.Error("#ERROR!");
+
+        CellValue result = Evaluate(sheetId, arguments[0]);
+        return result switch
+        {
+            CellValue.Number  v => v with { Value = v.Value < 0 ? (-1) * v.Value : v.Value },
+            CellValue.Decimal v => v with { Value = v.Value < 0 ? (-1) * v.Value : v.Value },
+            _ => result
+        };
+    }
+
+    private CellValue EvaluateArgument(Guid sheetId, AstNode argument)
+        => AttemptConvertByArithmetic(Evaluate(sheetId, argument));
+
+    /// <summary>
+    /// Yields the CellValue of every Cell in range.<br/>
+    /// This function DOES NOT do arithmetic conversions.
+    /// </summary>
     private IEnumerable<CellValue> EvaluateRange
         (Guid sheetId, AstNode.Primary.Range range)
     {
@@ -682,7 +799,13 @@ public class Evaluator
         {
             for (int j = canonRange.RowStart; j < canonRange.RowLength; ++j)
             {
-                yield return GetCellValue(sheetId, i, j);
+                AstNode? node = _workbook.GetCell(sheetId, new CellKey(i, j)).Ast;
+                if (node is null)
+                {
+                    throw new UnreachableException();
+                }
+
+                yield return Evaluate(sheetId, node);
             }
         }
     }
