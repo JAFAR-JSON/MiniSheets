@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using MiniSheets.Core.Model;
 
 namespace MiniSheets.Core.Formula;
 
@@ -134,8 +133,6 @@ public class Parser
 
             case Token.Cell t:
                 return ParseCellOrRange(t);
-                return new AstNode.Primary.Cell
-                    (t.Column, t.IsColumnFixed, t.Row, t.IsRowFixed);
 
             case Token.LeftParenthesis _:
             {
