@@ -10,6 +10,7 @@ internal class SpreadSheetUiEventHandler
     private readonly ToolBar _toolBar;
     private readonly MenuBar _menuBar;
     private readonly StatusBar _statusBar;
+    private ExportCSVScreen exportCSVScreen;
 
     internal SpreadSheetUiEventHandler(GridView gridView, FormulaBar formulaBar, MenuBar menuBar, ToolBar toolBar, StatusBar statusBar)
     {
@@ -19,7 +20,7 @@ internal class SpreadSheetUiEventHandler
         _menuBar = menuBar;
         _statusBar = statusBar;
 
-        // When the formula bar content changes, update the selected cell content in the grid view
+        // Subscribe to events
         _formulaBar.ChangeGridCellContent += UpdateSelectedCellContent;
         _formulaBar.EnterPressed += MoveDownToNextCell;
         _formulaBar.GoToCell += SendGridToCell;
@@ -32,6 +33,8 @@ internal class SpreadSheetUiEventHandler
         _menuBar.CopyButtonClicked += CopySelectedCellContent;
         _menuBar.PasteButtonClicked += PasteIntoSelectedCell;
         _menuBar.CutButtonClicked += CutSelectedCellContent;
+        _menuBar.ExportCsvClicked += ExportCsvClicked;
+        _menuBar.ImportCsvClicked += ImportCsvClicked;
 
        
 
@@ -83,5 +86,17 @@ internal class SpreadSheetUiEventHandler
     private void ChangeStatusBarText(object? sender, string text)
     {
         _statusBar.SetStatusText(text);
+    }
+
+    private void ExportCsvClicked(object? sender, EventArgs e)
+    {
+        exportCSVScreen = new ExportCSVScreen();
+        exportCSVScreen.Show();
+    }
+
+    private void ImportCsvClicked(object? sender, EventArgs e)
+    {
+        var importCSVScreen = new ImportCSVScreen();
+        importCSVScreen.Show();
     }
 }

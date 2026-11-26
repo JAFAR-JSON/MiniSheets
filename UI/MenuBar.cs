@@ -14,6 +14,9 @@ internal sealed class MenuBar : Border
     public event EventHandler? PasteButtonClicked;
     public event EventHandler? CutButtonClicked;
 
+    public event EventHandler? ExportCsvClicked;
+    public event EventHandler? ImportCsvClicked;
+
     public MenuBar()
     {
         Padding = new Thickness(6, 2);
@@ -60,7 +63,14 @@ internal sealed class MenuBar : Border
             {
                 menuItem.Click += (_, _) => HandleClipboardAction("Cut");
             }
-
+            else if (item == "Export CSV")
+            {
+                menuItem.Click += (_, _) => ExportCsvClicked?.Invoke(this, EventArgs.Empty);
+            }
+            else if (item == "Import CSV")
+            {
+                menuItem.Click += (_, _) => ImportCsvClicked?.Invoke(this, EventArgs.Empty);
+            }
 
             menu.Items.Add(menuItem);
             index++;
