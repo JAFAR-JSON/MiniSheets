@@ -7,6 +7,7 @@ public abstract record AstNode
     private AstNode() {}
 
     public sealed record Literal(CellValue Value) : AstNode;
+
     public abstract record Primary() : AstNode
     {
         // public sealed record Identifier(string Value) : Primary;
@@ -17,6 +18,8 @@ public abstract record AstNode
         public sealed record Error(string Value) : Primary;
         public sealed record Cell
             (int Column, bool isColumnFixed, int Row, bool isRowFixed) : Primary;
+        public sealed record Range
+            (AstNode.Primary.Cell Start, AstNode.Primary.Cell End) : Primary;
     }
 
     public sealed record Call(string Name, AstNode[] Arguments) : AstNode;

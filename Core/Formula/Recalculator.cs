@@ -67,22 +67,43 @@ public class Recalculator
         return first;
     }
 
-    private List<CellKey> GetDependencies(AstNode Ast)
+    private List<CellKey> GetDependencies(AstNode ast)
     {
         // TODO: Maybe recursion isn't the best thing way to do things here (in terms of performance).
-        switch (Ast)
+        switch (ast)
         {
-            case AstNode.Unary   ast:
-                return GetDependencies(ast.Body);
+            case AstNode.Unary   a:
+                return GetDependencies(a.Body);
 
-            case AstNode.Binary  ast:
-                return GetDependencies(ast.Left).Concat(GetDependencies(ast.Right)).ToList();
+            case AstNode.Binary  a:
+                return GetDependencies(a.Left).Concat(GetDependencies(a.Right)).ToList();
 
-            case AstNode.Primary.Cell ast:
+            case AstNode.Primary.Cell a:
                 return new List<CellKey>
-                    (new[] { new CellKey(ast.Column, ast.Row) });
+                    (new[] { new CellKey(a.Column, a.Row) });
+
+            case AstNode.Primary.Range a:
 
             default: return new List<CellKey>();
         }
+    }
+
+    // TODO: I think it might be a good idea to refactor this in the future,
+    // since this is not very performant, though I feel like that would require
+    // modifying DependencyGraph, which might take a while.
+    private List<CellKey> GetRangeDependencies(AstNode.Primary.Range range)
+    {
+        CanonRange canonRange = RangeCanonizer.GetCanonRange(range);
+        List<CellKey> cellKeys = new();
+
+        for (int i = canonRange.ColumnStart; i < canonRange.ColumnLength; ++i)
+        {
+            for (int j = canonRange.RowStart; j < canonRange.RowLength; ++j)
+            {
+                cellKeys.Add(new CellKey(i, j));
+            }
+        }
+
+        return cellKeys;
     }
 }

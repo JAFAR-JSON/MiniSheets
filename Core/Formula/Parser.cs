@@ -133,6 +133,7 @@ public class Parser
                 return new AstNode.Primary.Number(t.Value);
 
             case Token.Cell t:
+                return ParseCellOrRange(t);
                 return new AstNode.Primary.Cell
                     (t.Column, t.IsColumnFixed, t.Row, t.IsRowFixed);
 
@@ -150,6 +151,33 @@ public class Parser
 
             default:
                 throw new ParsingException("Failed to parse primary exception.");
+        }
+    }
+
+    private AstNode.Primary ParseCellOrRange(Token.Cell cell)
+    {
+        // int start = _current;
+        AstNode.Primary.Cell startCell =
+            new AstNode.Primary.Cell
+                (cell.Column, cell.IsColumnFixed, cell.Row, cell.IsRowFixed);
+
+        if (PeekToken() is not Token.Colon)
+        {
+            return startCell;
+        }
+        SkipToken();
+
+        Token token = ConsumeToken();
+        if (token is Token.Cell t)
+        {
+            AstNode.Primary.Cell endCell =
+                new AstNode.Primary.Cell
+                    (t.Column, t.IsColumnFixed, t.Row, t.IsRowFixed);
+            return new AstNode.Primary.Range(startCell, endCell);
+        }
+        else
+        {
+            throw new ParsingException("Expected second range indice.");
         }
     }
 

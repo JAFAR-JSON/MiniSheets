@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using MiniSheets.Core.Model;
+using MiniSheets.Shared;
 
 namespace MiniSheets.Core.Formula;
 
@@ -25,8 +26,11 @@ public class Evaluator
         _functionRegistry = functionRegistry;
     }
 
-    // TODO: Implement date lexing, parsing and evaluation for dates.
-    // Recheck ALL logic according to the specification.
+    /// <summary>
+    /// The "entry-point" (for lack of a better term) in the evaluator class.<br/>
+    /// Evaluates every kind of AstNode, with the exception of ranges,<br/>
+    /// which have to be handled manually (i.e. during function evaluation).<br/>
+    /// </summary>
     public CellValue Evaluate(Guid sheetId, AstNode expr)
         => expr switch
         {
@@ -39,13 +43,18 @@ public class Evaluator
             AstNode.Primary.Text   e => new CellValue.Text(e.Value),
             AstNode.Primary.Number e => EvaluateNumber(e.Value),
             AstNode.Primary.Error  e => new CellValue.Error(e.Value),
-            AstNode.Primary.Cell   e
-                => _workbook.Sheets[sheetId].GetCell(new CellKey(e.Column, e.Row)).Value,
+            AstNode.Primary.Cell   e => GetCellValue(sheetId, e.Column, e.Row),
+            AstNode.Primary.Range  e => new CellValue.Error("#ERROR!"),
 
             _ => throw new UnreachableException()
         };
+    
+    private CellValue GetCellValue(Guid sheetId, int column, int row)
+        => GetCellValue(sheetId, column, row);
 
-    // TODO: Implement function evaluation (and function registry).
+    private CellValue GetCellValue(Guid sheetId, CellKey key)
+        => _workbook.Sheets[sheetId].GetCell(key).Value;
+
     private CellValue EvaluateFunction(Guid sheetId, AstNode.Call astCall)
         => astCall.Name switch
         {
@@ -54,7 +63,7 @@ public class Evaluator
         };
 
     /// <summary>
-    /// Arithmetic rules as defined in section 3.5.3;
+    /// Arithmetic rules as defined in section 3.5.3;<br/>
     /// TODO: Should follow LocaleSettings.
     /// </summary>
     private CellValue ConvertTextByArithmeticRules(string text)
@@ -100,24 +109,6 @@ public class Evaluator
             return new CellValue.Error("#NUM!");
         }
     }
-
-    // private CellValue EvaluateDecimal(Guid sheetId, string canonizedString)
-    // {
-    //     // We're assuming that the number here is canonized (WHICH IT SHOULD BE).
-    //     try
-    //     {
-    //         return new CellValue.Decimal
-    //             (Convert.ToDecimal(astPrimary.Value));
-    //     }
-    //     catch (FormatException e)
-    //     {
-    //         return new CellValue.Error("#NUM!");
-    //     }
-    //     catch (OverflowException e)
-    //     {
-    //         return new CellValue.Error("#NUM!");
-    //     }
-    // }
 
     private CellValue EvaluateUnary(Guid sheetId, AstNode.Unary astUnary)
     {
@@ -263,7 +254,7 @@ public class Evaluator
     }
 
     /// <summary>
-    /// Since there are two types of numbers in this language,
+    /// Since there are two types of numbers in this language,<br/>
     /// Numbers and Decimals, two functions are needed for number evaluation.
     /// </summary>
     private CellValue EvaluateBinaryArithmetic
@@ -496,26 +487,33 @@ public class Evaluator
 
         foreach (var argument in arguments)
         {
-            CellValue result = EvaluateUnaryArithmetic(Evaluate(sheetId, argument));
-
-            switch (result)
+            if (argument is AstNode.Primary.Range r)
             {
-                case CellValue.Number v:
-                    total += (decimal) v.Value;
-                    break;
+                var cellValues = EvaluateRange(sheetId, r);
 
-                case CellValue.Decimal v:
-                    total += v.Value;
-                    decimalWasFound = true;      
-                    break;
+                foreach (CellValue cellValue in cellValues)
+                {
+                    if (cellValue is CellValue.Error)
+                    {
+                        return cellValue;
+                    }
 
-                case CellValue.Error  v:
-                    return v;
-
-                // TODO: Think about this.
-                default:
-                    return new CellValue.Error("#VALUE!");
+                    AccumulateNumericValue(cellValue, ref total, ref decimalWasFound);
+                }
             }
+
+            CellValue result = EvaluateArgument(sheetId, argument);
+
+            if (result is CellValue.Error)
+            {
+                return result;
+            }
+            else if (result is not CellValue.Number and not CellValue.Decimal)
+            {
+                return new CellValue.Error("#VALUE!");
+            }
+
+            AccumulateNumericValue(result, ref total, ref decimalWasFound);
         }
 
         return decimalWasFound
@@ -525,175 +523,86 @@ public class Evaluator
 
     private CellValue EvaluateFunctionAverage(Guid sheetId, AstNode[] arguments)
     {
-        int numberOfItems = 0;
+        int valuesFound = 0;
         decimal total = 0;
         bool decimalWasFound = false;
 
         foreach (var argument in arguments)
         {
-            ++numberOfItems;
-
-            CellValue result = EvaluateUnaryArithmetic(Evaluate(sheetId, argument));
-
-            switch (result)
+            if (argument is AstNode.Primary.Range r)
             {
-                case CellValue.Number v:
-                    total += (decimal) v.Value;
-                    break;
+                var cellValues = EvaluateRange(sheetId, r);
 
-                case CellValue.Decimal v:
-                    total += v.Value;
-                    decimalWasFound = true;      
-                    break;
+                foreach (CellValue cellValue in cellValues)
+                {
+                    if (cellValue is CellValue.Error)
+                    {
+                        return cellValue;
+                    }
+                    else if (cellValue is CellValue.Number or CellValue.Decimal)
+                    {
+                        ++valuesFound;
+                    }
 
-                case CellValue.Error  v:
-                    return v;
-
-                // TODO: Think about this.
-                default:
-                    return new CellValue.Error("#VALUE!");
+                    AccumulateNumericValue(cellValue, ref total, ref decimalWasFound);
+                }
             }
+
+            CellValue result = EvaluateArgument(sheetId, argument);
+
+            if (result is CellValue.Error)
+            {
+                return result;
+            }
+            else if (result is not CellValue.Number and not CellValue.Decimal)
+            {
+                return new CellValue.Error("#VALUE!");
+            }
+
+            AccumulateNumericValue(result, ref total, ref decimalWasFound);
+
+            ++valuesFound;
         }
+
+        valuesFound = valuesFound != 0 ? valuesFound : 0;
 
         return decimalWasFound
-            ? new CellValue.Decimal(total / numberOfItems)
-            : new CellValue.Number((double) total / numberOfItems);
+            ? new CellValue.Decimal(total / valuesFound)
+            : new CellValue.Number((double) total / valuesFound);
     }
 
-    // TODO: If something breaks here, redo these two functions (min and max),
-    // because they are BAD.
-    private CellValue EvaluateFunctionMin(Guid sheetId, AstNode[] arguments)
+    private void AccumulateNumericValue
+        (CellValue value, ref decimal total, ref bool decimalWasFound)
     {
-        if (arguments.Length == 0)
+        switch (value)
         {
-            return new CellValue.Number(0);
+            case CellValue.Number v: total += (decimal) v.Value; break;
+            case CellValue.Decimal v:
+                total += v.Value;
+                decimalWasFound = true;      
+                break;
         }
-        else if (arguments.Length == 1)
-        {
-            return EvaluateUnaryArithmetic
-                (Evaluate(sheetId, arguments[0]));
-        }
-
-        CellValue currentMinimum = EvaluateUnaryArithmetic
-            (Evaluate(sheetId, arguments[0]));
-        if (currentMinimum is CellValue.Error)
-        {
-            return currentMinimum;
-        }
-
-        foreach (var argument in arguments)
-        {
-            CellValue converted = EvaluateUnaryArithmetic
-                (Evaluate(sheetId, arguments[0]));
-
-            switch (converted)
-            {
-                case CellValue.Error v:
-                    return v;
-
-                case CellValue.Date v:
-                    if (currentMinimum is CellValue.Date minimumDate)
-                    {
-                        if (v.Value.DayNumber < minimumDate.Value.DayNumber)
-                        {
-                            currentMinimum = v;
-                        }
-                    }
-                    else
-                    {
-                        return new CellValue.Error("#VALUE!");
-                    }
-                    break;
-
-                default:
-                    var extractedMinimum   = ExtractNumericValue(currentMinimum);
-                    if (extractedMinimum is null)
-                    {
-                        return new CellValue.Error("#VALUE!");
-                    }
-                    var extractedConverted = ExtractNumericValue(converted);
-                    if (extractedMinimum is null)
-                    {
-                        return new CellValue.Error("#VALUE!");
-                    }
-
-                    if (extractedConverted < extractedMinimum)
-                    {
-                        currentMinimum = converted;
-                    }
-                    break;
-
-            }
-        }
-
-        return currentMinimum;
     }
 
-    private CellValue EvaluateFunctionMax(Guid sheetId, AstNode[] arguments)
+    // private CellValue EvaluateFunctionMin(Guid sheetId, AstNode[] arguments)
+    // {
+    // }
+
+    private CellValue EvaluateArgument(Guid sheetId, AstNode argument)
+        => EvaluateUnaryArithmetic(Evaluate(sheetId, argument));
+
+    private IEnumerable<CellValue> EvaluateRange
+        (Guid sheetId, AstNode.Primary.Range range)
     {
-        if (arguments.Length == 0)
-        {
-            return new CellValue.Number(0);
-        }
-        else if (arguments.Length == 1)
-        {
-            return EvaluateUnaryArithmetic
-                (Evaluate(sheetId, arguments[0]));
-        }
+        CanonRange canonRange = RangeCanonizer.GetCanonRange(range);
 
-        CellValue currentMaximum = EvaluateUnaryArithmetic
-            (Evaluate(sheetId, arguments[0]));
-        if (currentMaximum is CellValue.Error)
+        for (int i = canonRange.ColumnStart; i < canonRange.ColumnLength; ++i)
         {
-            return currentMaximum;
-        }
-
-        foreach (var argument in arguments)
-        {
-            CellValue converted = EvaluateUnaryArithmetic
-                (Evaluate(sheetId, arguments[0]));
-
-            switch (converted)
+            for (int j = canonRange.RowStart; j < canonRange.RowLength; ++j)
             {
-                case CellValue.Error v:
-                    return v;
-
-                case CellValue.Date v:
-                    if (currentMaximum is CellValue.Date maximumDate)
-                    {
-                        if (v.Value.DayNumber > maximumDate.Value.DayNumber)
-                        {
-                            currentMaximum = v;
-                        }
-                    }
-                    else
-                    {
-                        return new CellValue.Error("#VALUE!");
-                    }
-                    break;
-
-                default:
-                    var extractedMaximum   = ExtractNumericValue(currentMaximum);
-                    if (extractedMaximum is null)
-                    {
-                        return new CellValue.Error("#VALUE!");
-                    }
-                    var extractedConverted = ExtractNumericValue(converted);
-                    if (extractedMaximum is null)
-                    {
-                        return new CellValue.Error("#VALUE!");
-                    }
-
-                    if (extractedConverted < extractedMaximum)
-                    {
-                        currentMaximum = converted;
-                    }
-                    break;
-
+                yield return GetCellValue(sheetId, i, j);
             }
         }
-
-        return currentMaximum;
     }
 
     private decimal? ExtractNumericValue(CellValue value)
