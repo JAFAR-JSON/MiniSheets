@@ -208,27 +208,27 @@ public class Evaluator
 
             case BinaryAstNodeOperator.Equal:
                 return EvaluateBinaryComparison
-                    (left, right , (o) => o switch { Ordering.EQ => true, _  => false });
+                    (left, right , (o) => o is Ordering.EQ );
 
             case BinaryAstNodeOperator.NotEqual:
                 return EvaluateBinaryComparison
-                    (left, right , (o) => o switch { Ordering.EQ => false, _  => true });
+                    (left, right , (o) => o is not Ordering.EQ );
 
             case BinaryAstNodeOperator.LessThan:
                 return EvaluateBinaryComparison
-                    (left, right , (o) => o switch { Ordering.LT => true, _  => false });
+                    (left, right , (o) => o is Ordering.LT);
 
             case BinaryAstNodeOperator.GreaterThan:
                 return EvaluateBinaryComparison
-                    (left, right , (o) => o switch { Ordering.GT => true, _  => false });
+                    (left, right , (o) => o is Ordering.GT);
 
             case BinaryAstNodeOperator.LessThanEqual:
                 return EvaluateBinaryComparison
-                    (left, right , (o) => o switch { Ordering.LT => true, Ordering.EQ => true, _  => false });
+                    (left, right , (o) => o is Ordering.LT or Ordering.EQ);
 
             case BinaryAstNodeOperator.GreaterThanEqual:
                 return EvaluateBinaryComparison
-                    (left, right , (o) => o switch { Ordering.GT => true, Ordering.EQ => true, _  => false });
+                    (left, right , (o) => o is Ordering.GT or Ordering.EQ);
 
             // TODO: Implement Math.Pow() for decimals,
             // since there are no built-in functions for that that I've found.
@@ -500,6 +500,7 @@ public class Evaluator
 
                     AccumulateNumericValue(cellValue, ref total, ref decimalWasFound);
                 }
+                continue;
             }
 
             CellValue result = EvaluateArgument(sheetId, argument);
@@ -546,6 +547,7 @@ public class Evaluator
 
                     AccumulateNumericValue(cellValue, ref total, ref decimalWasFound);
                 }
+                continue;
             }
 
             CellValue result = EvaluateArgument(sheetId, argument);
@@ -584,9 +586,89 @@ public class Evaluator
         }
     }
 
-    // private CellValue EvaluateFunctionMin(Guid sheetId, AstNode[] arguments)
-    // {
-    // }
+    private CellValue EvaluateFunctionMin(Guid sheetId, AstNode[] arguments)
+        => EvaluateFunctionGetExtreme
+            (sheetId, arguments, (o) => o is Ordering.LT);
+
+    private CellValue EvaluateFunctionMax(Guid sheetId, AstNode[] arguments)
+        => EvaluateFunctionGetExtreme
+            (sheetId, arguments, (o) => o is Ordering.GT );
+
+    private CellValue EvaluateFunctionGetExtreme
+        (Guid sheetId, AstNode[] arguments, Func<Ordering, bool> predicate)
+    {
+        if (arguments.Length == 0) return new CellValue.Number(0);
+
+        CellValue current = new CellValue.Empty();
+
+        foreach (var argument in arguments)
+        {
+            if (argument is AstNode.Primary.Range r)
+            {
+                var cellValues = EvaluateRange(sheetId, r);
+
+                foreach (CellValue cellValue in cellValues)
+                {
+                    if (!IsUsableByExtreme(cellValue))
+                    {
+                        continue;
+                    }
+                    else if (current is CellValue.Empty)
+                    {
+                        current = cellValue;
+                        continue;
+                    }
+
+                    AssignNewExtremeIfPossible(cellValue, predicate, ref current);
+                }
+
+                continue;
+            }
+
+            CellValue result = EvaluateArgument(sheetId, argument);
+
+            if (result is CellValue.Error)
+            {
+                return result;
+            }
+            else if (!IsUsableByExtreme(result))
+            {
+                return new CellValue.Error("#VALUE!");
+            }
+            else if (current is CellValue.Empty)
+            {
+                current = result;
+                continue;
+            }
+
+            AssignNewExtremeIfPossible(result, predicate, ref current);
+        }
+
+        return current;
+    }
+
+    private bool IsUsableByExtreme(CellValue cellValue)
+        => cellValue switch
+        {
+            CellValue.Number  => true,
+            CellValue.Decimal => true,
+            CellValue.Date    => true,
+            _ => false
+        };
+
+    private void AssignNewExtremeIfPossible
+        (CellValue potential, Func<Ordering, bool> predicate, ref CellValue current)
+    {
+        if (IsNumericValue(potential) && IsNumericValue(current)
+            || potential is CellValue.Date && current is CellValue.Date)
+        {
+            Ordering? ordering = Compare(potential, current);
+            if (ordering is not null && predicate(ordering.Value))
+            {
+                current = potential;
+            }
+        }
+    }
 
     private CellValue EvaluateArgument(Guid sheetId, AstNode argument)
         => EvaluateUnaryArithmetic(Evaluate(sheetId, argument));
@@ -604,6 +686,14 @@ public class Evaluator
             }
         }
     }
+
+    private bool IsNumericValue(CellValue value)
+        => value switch
+        {
+            CellValue.Number  v => true,
+            CellValue.Decimal v => true,
+            _ => false
+        };
 
     private decimal? ExtractNumericValue(CellValue value)
         => value switch
