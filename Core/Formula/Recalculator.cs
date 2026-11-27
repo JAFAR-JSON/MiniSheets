@@ -51,7 +51,7 @@ public class Recalculator
             throw new ArgumentException("Sheet does not already exist.");
         }
 
-        Cell cell = _workbook.Sheets[sheetId].Cells[cellKey];
+        Cell cell = _workbook.Sheets[sheetId].GetCell(cellKey);
         if (cell.Ast is null)
         {
             throw new UnreachableException();
@@ -59,6 +59,7 @@ public class Recalculator
 
         DependencyGraph<CellKey> dependencyGraph = SheetDependencies[sheetId];
         List<CellKey> dependencies = GetDependencies(cell.Ast);
+        // Console.WriteLine($"DEBUG: RecalculateCell({dependencies.Count})");
         dependencyGraph.RemoveAllDependencies(cellKey);
         dependencyGraph.Add(cellKey, dependencies);
 
@@ -67,22 +68,61 @@ public class Recalculator
         return first;
     }
 
-    private List<CellKey> GetDependencies(AstNode Ast)
+    private List<CellKey> GetDependencies(AstNode ast)
     {
+        // Console.WriteLine($"DEBUG: GetDependencies(ast: {ast})");
         // TODO: Maybe recursion isn't the best thing way to do things here (in terms of performance).
-        switch (Ast)
+        switch (ast)
         {
-            case AstNode.Unary   ast:
-                return GetDependencies(ast.Body);
+            case AstNode.Unary   a:
+                return GetDependencies(a.Body);
 
-            case AstNode.Binary  ast:
-                return GetDependencies(ast.Left).Concat(GetDependencies(ast.Right)).ToList();
+            case AstNode.Binary  a:
+                return GetDependencies(a.Left).Concat(GetDependencies(a.Right)).ToList();
 
-            case AstNode.Primary.Cell ast:
+            case AstNode.Call    a:
+            {
+                List<CellKey> cellKeys = new();
+                // Console.WriteLine($"DEBUG: GetDependencies(arguments: {a.Arguments.Length})");
+                foreach (var argument in a.Arguments)
+                {
+                    cellKeys.AddRange(GetDependencies(argument));
+                    // Console.WriteLine($"DEBUG: GetDependencies(current_cells: {cellKeys.Count})");
+                }
+                // Console.WriteLine($"DEBUG: GetDependencies(total_cells: {cellKeys.Count})");
+                return cellKeys;
+            }
+
+            case AstNode.Primary.Cell a:
                 return new List<CellKey>
-                    (new[] { new CellKey(ast.Column, ast.Row) });
+                    (new[] { new CellKey(a.Column, a.Row) });
+
+            case AstNode.Primary.Range a:
+                return GetRangeDependencies(a);
 
             default: return new List<CellKey>();
         }
+    }
+
+    // TODO: I think it might be a good idea to refactor this in the future,
+    // since this is not very performant, though I feel like that would require
+    // modifying DependencyGraph, which might take a while.
+    private List<CellKey> GetRangeDependencies(AstNode.Primary.Range range)
+    {
+        CanonRange canonRange = RangeCanonizer.GetCanonRange(range);
+        List<CellKey> cellKeys = new();
+
+        // Console.WriteLine($"DEBUG: GetRangeDependencies(canonRange: {canonRange})");
+        for (int i = canonRange.ColumnStart; i < canonRange.ColumnStart + canonRange.ColumnLength; ++i)
+        {
+            // Console.WriteLine($"DEBUG: GetRangeDependencies({i})");
+            for (int j = canonRange.RowStart; j < canonRange.RowStart + canonRange.RowLength; ++j)
+            {
+                // Console.WriteLine($"DEBUG: GetRangeDependencies({i}, {j})");
+                cellKeys.Add(new CellKey(i, j));
+            }
+        }
+
+        return cellKeys;
     }
 }

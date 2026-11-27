@@ -10,7 +10,6 @@ public class SpreadsheetEngine
 {
     private readonly Workbook _workbook;
     private readonly Recalculator _recalculator;
-    private readonly FunctionRegistry _functionRegistry;
     private readonly StyleManager _styleManager;
     private readonly Evaluator _evaluator;
     private readonly Parser _parser;
@@ -21,9 +20,8 @@ public class SpreadsheetEngine
     {
         _workbook = workbook;
         _recalculator = new Recalculator(_workbook);
-        _functionRegistry = new FunctionRegistry();
         _styleManager = new StyleManager(_workbook);
-        _evaluator = new Evaluator(_workbook, _styleManager, _functionRegistry);
+        _evaluator = new Evaluator(_workbook, _styleManager);
         _parser = new Parser();
         _valueParser = new ValueParser(_parser);
         _valueFormatter = new ValueFormatter(_styleManager);
@@ -79,16 +77,16 @@ public class SpreadsheetEngine
 
         // Evaluate every dependency in order.
         List<CellKey> cellKeys = _recalculator.RecalculateCell(sheetId, cellKey);
-        // Console.WriteLine($"SetCellText({cellKeys.Count}, {cell.Raw}, {cell.Ast})");
+        // Console.WriteLine($"DEBUG: SetCellText({cellKeys.Count}, {cell.Raw}, {cell.Ast})");
         foreach (CellKey recalculatedCellKey in cellKeys)
         {
-            // Console.WriteLine($"SetCellText.Key(column: {recalculatedCellKey.Column}, row: {recalculatedCellKey.Row});");
+            // Console.WriteLine($"DEBUG: SetCellText.Key(column: {recalculatedCellKey.Column}, row: {recalculatedCellKey.Row});");
             Cell recalculatedCell = sheet.GetCell(recalculatedCellKey);
             if (recalculatedCell.Ast is null)
             {
                 throw new UnreachableException();
             }
-            // Console.WriteLine($"SetCellText.Ast({recalculatedCell.Ast})");
+            // Console.WriteLine($"DEBUG: SetCellText.Ast({recalculatedCell.Ast})");
             recalculatedCell.Value = _evaluator.Evaluate(sheetId, recalculatedCell.Ast);
         }
 
@@ -108,5 +106,20 @@ public class SpreadsheetEngine
         Cell cell = sheet.GetCell(cellKey);
 
         return _valueFormatter.Format(cell.Value);
+    }
+
+    public string GetRawCellTExt(int sheetIndex, CellKey cellKey)
+    {
+        Guid sheetId = _workbook.SheetIds[sheetIndex];
+
+        return GetRawCellText(sheetId, cellKey);
+    }
+
+    public string GetRawCellText(Guid sheetId, CellKey cellKey)
+    {
+        Sheet sheet = _workbook.Sheets[sheetId];
+        Cell cell = sheet.GetCell(cellKey);
+
+        return cell.Raw;
     }
 }

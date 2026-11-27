@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using MiniSheets.Core.Model;
 
 namespace MiniSheets.Core.Formula;
 
@@ -126,12 +125,14 @@ public class Parser
             case Token.Str t:
                 return new AstNode.Primary.Text(t.Value);
 
+            case Token.Date t:
+                return new AstNode.Primary.Date(t.Value);
+
             case Token.Number t:
                 return new AstNode.Primary.Number(t.Value);
 
             case Token.Cell t:
-                return new AstNode.Primary.Cell
-                    (t.Column, t.IsColumnFixed, t.Row, t.IsRowFixed);
+                return ParseCellOrRange(t);
 
             case Token.LeftParenthesis _:
             {
@@ -147,6 +148,33 @@ public class Parser
 
             default:
                 throw new ParsingException("Failed to parse primary exception.");
+        }
+    }
+
+    private AstNode.Primary ParseCellOrRange(Token.Cell cell)
+    {
+        // int start = _current;
+        AstNode.Primary.Cell startCell =
+            new AstNode.Primary.Cell
+                (cell.Column, cell.IsColumnFixed, cell.Row, cell.IsRowFixed);
+
+        if (PeekToken() is not Token.Colon)
+        {
+            return startCell;
+        }
+        SkipToken();
+
+        Token token = ConsumeToken();
+        if (token is Token.Cell t)
+        {
+            AstNode.Primary.Cell endCell =
+                new AstNode.Primary.Cell
+                    (t.Column, t.IsColumnFixed, t.Row, t.IsRowFixed);
+            return new AstNode.Primary.Range(startCell, endCell);
+        }
+        else
+        {
+            throw new ParsingException("Expected second range indice.");
         }
     }
 

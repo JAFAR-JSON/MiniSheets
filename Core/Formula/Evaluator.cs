@@ -16,18 +16,19 @@ public class Evaluator
 
     private readonly Workbook _workbook;
     private readonly StyleManager _styleManager;
-    private readonly FunctionRegistry _functionRegistry;
 
     public Evaluator
-        (Workbook workbook, StyleManager styleManager, FunctionRegistry functionRegistry)
+        (Workbook workbook, StyleManager styleManager)
     {
         _workbook = workbook;
         _styleManager = styleManager;
-        _functionRegistry = functionRegistry;
     }
 
-    // TODO: Implement date lexing, parsing and evaluation for dates.
-    // Recheck ALL logic according to the specification.
+    /// <summary>
+    /// The "entry-point" (for lack of a better term) in the evaluator class.<br/>
+    /// Evaluates every kind of AstNode, with the exception of ranges,<br/>
+    /// which have to be handled manually (i.e. during function evaluation).<br/>
+    /// </summary>
     public CellValue Evaluate(Guid sheetId, AstNode expr)
         => expr switch
         {
@@ -40,16 +41,61 @@ public class Evaluator
             AstNode.Primary.Text   e => new CellValue.Text(e.Value),
             AstNode.Primary.Number e => EvaluateNumber(e.Value),
             AstNode.Primary.Error  e => new CellValue.Error(e.Value),
-            AstNode.Primary.Cell   e
-                => _workbook.Sheets[sheetId].GetCell(new CellKey(e.Column, e.Row)).Value,
+            AstNode.Primary.Cell   e => GetCellValue(sheetId, e.Column, e.Row),
+            AstNode.Primary.Range  e => new CellValue.Error("#ERROR!"),
 
             _ => throw new UnreachableException()
         };
+    
+    private CellValue GetCellValue(Guid sheetId, int column, int row)
+        => GetCellValue(sheetId, new CellKey(column, row));
 
-    // TODO: Implement function evaluation (and function registry).
+    private CellValue GetCellValue(Guid sheetId, CellKey key)
+        => _workbook.Sheets[sheetId].GetCell(key).Value;
+
+    // TODO: Implement the rest of the function registry functions,
+    // and test out the existing ones.
     private CellValue EvaluateFunction(Guid sheetId, AstNode.Call astCall)
+        => astCall.Name switch
+        {
+            "SUM"     => EvaluateFunctionSum     (sheetId, astCall.Arguments),
+            "AVERAGE" => EvaluateFunctionAverage (sheetId, astCall.Arguments),
+            "MIN"     => EvaluateFunctionMin     (sheetId, astCall.Arguments),
+            "MAX"     => EvaluateFunctionMax     (sheetId, astCall.Arguments),
+            "COUNT"   => EvaluateFunctionCount   (sheetId, astCall.Arguments),
+            "ROUND"   => EvaluateFunctionRound   (sheetId, astCall.Arguments),
+            "ABS"     => EvaluateFunctionAbs     (sheetId, astCall.Arguments),
+            _ => new CellValue.Error("#NAME?"),
+        };
+
+    /// <summary>
+    /// Arithmetic rules as defined in section 3.5.3;<br/>
+    /// TODO: Should follow LocaleSettings.
+    /// </summary>
+    private CellValue ConvertTextByArithmeticRules(string text)
     {
-        throw new UnreachableException();
+        // We're assuming that the number here is canonized (WHICH IT SHOULD BE).
+        try
+        {
+            return new CellValue.Number
+                (Convert.ToDouble(text));
+        }
+        catch (OverflowException)
+        {
+            return new CellValue.Error("#NUM!");
+        }
+        catch (FormatException) { }
+
+        try
+        {
+            DateOnly firstDate =
+                DateOnly.ParseExact
+                    (text, "yyyy-MM-dd");
+            return new CellValue.Date(firstDate);
+        }
+        catch (FormatException) { }
+
+        return new CellValue.Error("#VALUE!");
     }
 
     private CellValue EvaluateNumber(string canonizedString)
@@ -70,24 +116,6 @@ public class Evaluator
         }
     }
 
-    // private CellValue EvaluateDecimal(Guid sheetId, string canonizedString)
-    // {
-    //     // We're assuming that the number here is canonized (WHICH IT SHOULD BE).
-    //     try
-    //     {
-    //         return new CellValue.Decimal
-    //             (Convert.ToDecimal(astPrimary.Value));
-    //     }
-    //     catch (FormatException e)
-    //     {
-    //         return new CellValue.Error("#NUM!");
-    //     }
-    //     catch (OverflowException e)
-    //     {
-    //         return new CellValue.Error("#NUM!");
-    //     }
-    // }
-
     private CellValue EvaluateUnary(Guid sheetId, AstNode.Unary astUnary)
     {
         CellValue body = Evaluate(sheetId, astUnary.Body);
@@ -96,19 +124,19 @@ public class Evaluator
         return unaryOperator switch
         {
             UnaryAstNodeOperator.Negate
-                => EvaluateUnaryNegate(body),
+                => AttemptConvertByNegate(body),
 
             UnaryAstNodeOperator.Plus
-                => EvaluateUnaryArithmetic(body),
+                => AttemptConvertByArithmetic(body),
 
             UnaryAstNodeOperator.Percentify
-                => EvaluateUnaryArithmetic(body),
+                => AttemptConvertByArithmetic(body),
 
             _ => throw new UnreachableException()
         };
     }
 
-    private CellValue EvaluateUnaryNegate(CellValue body)
+    private CellValue AttemptConvertByNegate(CellValue body)
         => body switch
         {
             CellValue.Empty v
@@ -127,12 +155,12 @@ public class Evaluator
                 => v with { Value = !v.Value },
 
             CellValue.Date    v
-                => throw new UnreachableException(),
+                => new CellValue.Error("#VALUE!"),
 
             CellValue.Error   v => v
         };
 
-    private CellValue EvaluateUnaryArithmetic(CellValue body)
+    private CellValue AttemptConvertByArithmetic(CellValue body)
         => body switch
         {
             CellValue.Empty v
@@ -145,16 +173,43 @@ public class Evaluator
                 => v,
 
             CellValue.Text v
-                => EvaluateNumber(v.Value),
+                => ConvertTextByArithmeticRules(v.Value),
 
             CellValue.Bool v
                 => new CellValue.Number(v.Value ? 1 : 0),
 
             CellValue.Date v
-                => throw new UnreachableException(),
+                => v,
 
             CellValue.Error v
                 => v
+        };
+
+    private CellValue AttemptConvertEmptyByArithmetic(CellValue body)
+        => body switch
+        {
+            CellValue.Empty v
+                => new CellValue.Number(0),
+
+            _ => body
+        };
+
+    private CellValue AttemptConvertBoolByArithmetic(CellValue body)
+        => body switch
+        {
+            CellValue.Bool v
+                => new CellValue.Number(v.Value ? 1 : 0),
+
+            _ => body
+        };
+
+    private CellValue AttemptConvertTextByArithmetic(CellValue body)
+        => body switch
+        {
+            CellValue.Text v
+                => ConvertTextByArithmeticRules(v.Value),
+
+            _ => body
         };
 
     private CellValue EvaluateBinary(Guid sheetId, AstNode.Binary astBinary)
@@ -166,11 +221,11 @@ public class Evaluator
         switch (binaryOperator)
         {
             case BinaryAstNodeOperator.Add:
-                return EvaluateBinaryArithmetic
+                return EvaluateBinaryArithmeticWithDateHandling
                     (left, right , (l, r) => l + r , (l, r) => l + r);
 
             case BinaryAstNodeOperator.Subtract:
-                return EvaluateBinaryArithmetic
+                return EvaluateBinaryArithmeticWithDateHandling
                     (left, right , (l, r) => l - r , (l, r) => l - r);
 
             case BinaryAstNodeOperator.Multiply:
@@ -186,27 +241,27 @@ public class Evaluator
 
             case BinaryAstNodeOperator.Equal:
                 return EvaluateBinaryComparison
-                    (left, right , (o) => o switch { Ordering.EQ => true, _  => false });
+                    (left, right , (o) => o is Ordering.EQ );
 
             case BinaryAstNodeOperator.NotEqual:
                 return EvaluateBinaryComparison
-                    (left, right , (o) => o switch { Ordering.EQ => false, _  => true });
+                    (left, right , (o) => o is not Ordering.EQ );
 
             case BinaryAstNodeOperator.LessThan:
                 return EvaluateBinaryComparison
-                    (left, right , (o) => o switch { Ordering.LT => true, _  => false });
+                    (left, right , (o) => o is Ordering.LT);
 
             case BinaryAstNodeOperator.GreaterThan:
                 return EvaluateBinaryComparison
-                    (left, right , (o) => o switch { Ordering.GT => true, _  => false });
+                    (left, right , (o) => o is Ordering.GT);
 
             case BinaryAstNodeOperator.LessThanEqual:
                 return EvaluateBinaryComparison
-                    (left, right , (o) => o switch { Ordering.LT => true, Ordering.EQ => true, _  => false });
+                    (left, right , (o) => o is Ordering.LT or Ordering.EQ);
 
             case BinaryAstNodeOperator.GreaterThanEqual:
                 return EvaluateBinaryComparison
-                    (left, right , (o) => o switch { Ordering.GT => true, Ordering.EQ => true, _  => false });
+                    (left, right , (o) => o is Ordering.GT or Ordering.EQ);
 
             // TODO: Implement Math.Pow() for decimals,
             // since there are no built-in functions for that that I've found.
@@ -218,8 +273,21 @@ public class Evaluator
         throw new UnreachableException();
     }
 
+    private CellValue EvaluateBinaryArithmeticWithDateHandling
+        (CellValue left, CellValue right
+        , Func<double , double , double > doubleFunc
+        , Func<decimal, decimal, decimal> decimalFunc
+        )
+    {
+        CellValue result;
+        if (ArithmeticIsDate (left , out result)) { left = result; }
+        if (ArithmeticIsDate (right, out result)) { right = result; }
+
+        return EvaluateBinaryArithmetic(left, right, doubleFunc, decimalFunc);
+    }
+
     /// <summary>
-    /// Since there are two types of numbers in this language,
+    /// Since there are two types of numbers in this language,<br/>
     /// Numbers and Decimals, two functions are needed for number evaluation.
     /// </summary>
     private CellValue EvaluateBinaryArithmetic
@@ -228,15 +296,18 @@ public class Evaluator
         , Func<decimal, decimal, decimal> decimalFunc
         )
     {
+        // This is quite bad in fact.
         CellValue result;
-        if (ArithmeticIsEmpty(left , out result)) { return result; }
-        if (ArithmeticIsEmpty(right, out result)) { return result; }
-        if (ArithmeticIsText (left , out result)) { return result; }
-        if (ArithmeticIsText (right, out result)) { return result; }
-        if (ArithmeticIsBool (left , out result)) { return result; }
-        if (ArithmeticIsBool (right, out result)) { return result; }
-        if (ArithmeticIsError(left , out result)) { return result; }
-        if (ArithmeticIsError(right, out result)) { return result; }
+        if (ArithmeticIsEmpty(left , out result)) { left = result; }
+        if (ArithmeticIsEmpty(right, out result)) { right = result; }
+        if (ArithmeticIsText (left , out result)) { left = result; }
+        if (ArithmeticIsText (right, out result)) { right = result; }
+        // if (ArithmeticIsDate (left , out result)) { left = result; }
+        // if (ArithmeticIsDate (right, out result)) { right = result; }
+        if (ArithmeticIsBool (left , out result)) { left = result; }
+        if (ArithmeticIsBool (right, out result)) { right = result; }
+        if (ArithmeticIsError(left , out result)) { left = result; }
+        if (ArithmeticIsError(right, out result)) { right = result; }
 
         var evalNumbers = CellValue (double left, double right) =>
         {
@@ -296,11 +367,11 @@ public class Evaluator
         return false;
     }
 
-    private bool ArithmeticIsBool(CellValue input, out CellValue output)
+    private bool ArithmeticIsDate(CellValue input, out CellValue output)
     {
-        if (input is CellValue.Bool)
+        if (input is CellValue.Date date)
         {
-            output = input;
+            output = new CellValue.Number(date.Value.DayNumber);
             return true;
         }
 
@@ -308,11 +379,11 @@ public class Evaluator
         return false;
     }
 
-    private bool ArithmeticIsDate(CellValue input, out CellValue output)
+    private bool ArithmeticIsBool(CellValue input, out CellValue output)
     {
-        if (input is CellValue.Date date)
+        if (input is CellValue.Bool)
         {
-            throw new UnreachableException();
+            output = input;
             return true;
         }
 
@@ -343,11 +414,11 @@ public class Evaluator
     private Ordering? Compare(CellValue left, CellValue right)
         => (left, right) switch
         {
-            (CellValue.Date l, CellValue.Date r)
-                => CompareDate(l.Value, r.Value),
-
             (CellValue.Text l, CellValue.Text r)
                 => CompareText(l.Value, r.Value),
+
+            (CellValue.Date l, CellValue.Date r)
+                => CompareDate(l.Value, r.Value),
 
             (CellValue.Bool l, CellValue.Bool r)
                 => CompareBool(l.Value, r.Value),
@@ -366,12 +437,6 @@ public class Evaluator
 
             _ => null
         };
-
-    private Ordering CompareDate
-        (DateOnly left, DateOnly right)
-    {
-        throw new UnreachableException();
-    }
 
     private Ordering CompareText
         (string leftText, string rightText)
@@ -395,6 +460,21 @@ public class Evaluator
         {
             return leftText.Length < rightText.Length ? Ordering.LT : Ordering.GT;
         }
+    }
+
+    private Ordering CompareDate
+        (DateOnly left, DateOnly right)
+    {
+        if (left.Year < right.Year) return Ordering.LT;
+        else if (left.Year > right.Year) return Ordering.GT;
+
+        if (left.Month < right.Month) return Ordering.LT;
+        else if (left.Month > right.Month) return Ordering.GT;
+
+        if (left.Day < right.Day) return Ordering.LT;
+        else if (left.Day > right.Day) return Ordering.GT;
+
+        return Ordering.EQ;
     }
 
     private Ordering CompareBool
@@ -430,6 +510,325 @@ public class Evaluator
         };
 
     // ================================================================================
-    // Function Registry
+    // NOT_SPECIFICATION: Function Registry has not been implemented as a seperate module.
     // ================================================================================
+
+    private CellValue EvaluateFunctionSum(Guid sheetId, AstNode[] arguments)
+    {
+        decimal total = 0;
+        bool decimalWasFound = false;
+
+        foreach (var argument in arguments)
+        {
+            if (argument is AstNode.Primary.Range r)
+            {
+                var cellValues = EvaluateRange(sheetId, r);
+
+                foreach (CellValue cellValue in cellValues)
+                {
+                    if (cellValue is CellValue.Error)
+                    {
+                        return cellValue;
+                    }
+
+                    AccumulateNumericValue(cellValue, ref total, ref decimalWasFound);
+                }
+                continue;
+            }
+
+            CellValue result = EvaluateArgument(sheetId, argument);
+
+            if (result is CellValue.Error)
+            {
+                return result;
+            }
+            else if (result is not CellValue.Number and not CellValue.Decimal)
+            {
+                return new CellValue.Error("#VALUE!");
+            }
+
+            AccumulateNumericValue(result, ref total, ref decimalWasFound);
+        }
+
+        return decimalWasFound
+            ? new CellValue.Decimal(total)
+            : new CellValue.Number((double) total);
+    }
+
+    private CellValue EvaluateFunctionAverage(Guid sheetId, AstNode[] arguments)
+    {
+        int valuesFound = 0;
+        decimal total = 0;
+        bool decimalWasFound = false;
+
+        foreach (var argument in arguments)
+        {
+            if (argument is AstNode.Primary.Range r)
+            {
+                var cellValues = EvaluateRange(sheetId, r);
+
+                foreach (CellValue cellValue in cellValues)
+                {
+                    if (cellValue is CellValue.Error)
+                    {
+                        return cellValue;
+                    }
+                    else if (cellValue is CellValue.Number or CellValue.Decimal)
+                    {
+                        ++valuesFound;
+                    }
+
+                    AccumulateNumericValue(cellValue, ref total, ref decimalWasFound);
+                }
+                continue;
+            }
+
+            CellValue result = EvaluateArgument(sheetId, argument);
+
+            if (result is CellValue.Error)
+            {
+                return result;
+            }
+            else if (result is not CellValue.Number and not CellValue.Decimal)
+            {
+                return new CellValue.Error("#VALUE!");
+            }
+
+            AccumulateNumericValue(result, ref total, ref decimalWasFound);
+
+            ++valuesFound;
+        }
+
+        valuesFound = valuesFound != 0 ? valuesFound : 0;
+
+        return decimalWasFound
+            ? new CellValue.Decimal(total / valuesFound)
+            : new CellValue.Number((double) total / valuesFound);
+    }
+
+    private void AccumulateNumericValue
+        (CellValue value, ref decimal total, ref bool decimalWasFound)
+    {
+        switch (value)
+        {
+            case CellValue.Number v: total += (decimal) v.Value; break;
+            case CellValue.Decimal v:
+                total += v.Value;
+                decimalWasFound = true;      
+                break;
+        }
+    }
+
+    private CellValue EvaluateFunctionMin(Guid sheetId, AstNode[] arguments)
+        => EvaluateFunctionGetExtreme
+            (sheetId, arguments, (o) => o is Ordering.LT);
+
+    private CellValue EvaluateFunctionMax(Guid sheetId, AstNode[] arguments)
+        => EvaluateFunctionGetExtreme
+            (sheetId, arguments, (o) => o is Ordering.GT );
+
+    private CellValue EvaluateFunctionGetExtreme
+        (Guid sheetId, AstNode[] arguments, Func<Ordering, bool> predicate)
+    {
+        if (arguments.Length == 0) return new CellValue.Number(0);
+
+        CellValue current = new CellValue.Empty();
+
+        foreach (var argument in arguments)
+        {
+            if (argument is AstNode.Primary.Range r)
+            {
+                var cellValues = EvaluateRange(sheetId, r);
+
+                foreach (CellValue cellValue in cellValues)
+                {
+                    if (!IsUsableByExtreme(cellValue))
+                    {
+                        continue;
+                    }
+                    else if (current is CellValue.Empty)
+                    {
+                        current = cellValue;
+                        continue;
+                    }
+
+                    AssignNewExtremeIfPossible(cellValue, predicate, ref current);
+                }
+
+                continue;
+            }
+
+            CellValue result = EvaluateArgument(sheetId, argument);
+
+            if (result is CellValue.Error)
+            {
+                return result;
+            }
+            else if (!IsUsableByExtreme(result))
+            {
+                return new CellValue.Error("#VALUE!");
+            }
+            else if (current is CellValue.Empty)
+            {
+                current = result;
+                continue;
+            }
+
+            AssignNewExtremeIfPossible(result, predicate, ref current);
+        }
+
+        return current;
+    }
+
+    private bool IsUsableByExtreme(CellValue cellValue)
+        => cellValue switch
+        {
+            CellValue.Number  => true,
+            CellValue.Decimal => true,
+            CellValue.Date    => true,
+            _ => false
+        };
+
+    private void AssignNewExtremeIfPossible
+        (CellValue potential, Func<Ordering, bool> predicate, ref CellValue current)
+    {
+        if (IsNumericValue(potential) && IsNumericValue(current)
+            || potential is CellValue.Date && current is CellValue.Date)
+        {
+            Ordering? ordering = Compare(potential, current);
+            if (ordering is not null && predicate(ordering.Value))
+            {
+                current = potential;
+            }
+        }
+    }
+
+    private CellValue EvaluateFunctionCount(Guid sheetId, AstNode[] arguments)
+    {
+        if (arguments.Length == 0) return new CellValue.Error("#ERROR!");
+
+        int count = 0;
+
+        foreach (var argument in arguments)
+        {
+            if (argument is AstNode.Primary.Range r)
+            {
+                var cellValues = EvaluateRange(sheetId, r);
+
+                foreach (CellValue cellValue in cellValues)
+                {
+                    if (cellValue is CellValue.Error) return cellValue;
+
+                    count += cellValue switch
+                    {
+                        CellValue.Number  => 1,
+                        CellValue.Decimal => 1,
+                        CellValue.Date    => 1,
+                        _ => 0
+                    };
+                }
+                continue;
+            }
+
+            count += EvaluateArgument(sheetId, argument) switch
+            {
+                CellValue.Number  => 1,
+                CellValue.Decimal => 1,
+                CellValue.Date    => 1,
+                _ => 0
+            };
+        }
+
+        return new CellValue.Number((double) count);
+    }
+
+    private CellValue EvaluateFunctionRound(Guid sheetId, AstNode[] arguments)
+    {
+        if (arguments.Length != 2) return new CellValue.Error("#ERROR!");
+
+        decimal numberToRound = 0;
+        int placesToRound = 0;
+        bool isDecimalFound = false;
+
+        CellValue number = Evaluate(sheetId, arguments[0]);
+        switch (number)
+        {
+            case CellValue.Number   v: numberToRound = (decimal) v.Value; break;
+            case CellValue.Decimal  v:
+                numberToRound = v.Value;
+                isDecimalFound = true;
+                break;
+
+            default: return new CellValue.Error("#VALUE!");
+        };
+
+        CellValue places = Evaluate(sheetId, arguments[0]);
+        switch (places)
+        {
+            case CellValue.Number   v: placesToRound = (int)  double.Round(v.Value); break;
+            case CellValue.Decimal  v: placesToRound = (int) decimal.Round(v.Value); break;
+
+            default: return new CellValue.Error("#VALUE!");
+        };
+
+        return isDecimalFound
+            ? new CellValue.Decimal(decimal.Round(numberToRound, placesToRound))
+            : new CellValue.Number ((double) decimal.Round(numberToRound, placesToRound));
+    }
+
+    private CellValue EvaluateFunctionAbs(Guid sheetId, AstNode[] arguments)
+    {
+        if (arguments.Length != 1) return new CellValue.Error("#ERROR!");
+
+        CellValue result = Evaluate(sheetId, arguments[0]);
+        return result switch
+        {
+            CellValue.Number  v => v with { Value = v.Value < 0 ? (-1) * v.Value : v.Value },
+            CellValue.Decimal v => v with { Value = v.Value < 0 ? (-1) * v.Value : v.Value },
+            _ => result
+        };
+    }
+
+    private CellValue EvaluateArgument(Guid sheetId, AstNode argument)
+        => AttemptConvertByArithmetic(Evaluate(sheetId, argument));
+
+    /// <summary>
+    /// Yields the CellValue of every Cell in range.<br/>
+    /// This function DOES NOT do arithmetic conversions.
+    /// </summary>
+    private IEnumerable<CellValue> EvaluateRange
+        (Guid sheetId, AstNode.Primary.Range range)
+    {
+        CanonRange canonRange = RangeCanonizer.GetCanonRange(range);
+
+        for (int i = canonRange.ColumnStart; i < canonRange.ColumnStart + canonRange.ColumnLength; ++i)
+        {
+            for (int j = canonRange.RowStart; j < canonRange.RowStart + canonRange.RowLength; ++j)
+            {
+                AstNode? node = _workbook.GetCell(sheetId, new CellKey(i, j)).Ast;
+                if (node is null)
+                {
+                    throw new UnreachableException();
+                }
+
+                yield return Evaluate(sheetId, node);
+            }
+        }
+    }
+
+    private bool IsNumericValue(CellValue value)
+        => value switch
+        {
+            CellValue.Number  v => true,
+            CellValue.Decimal v => true,
+            _ => false
+        };
+
+    private decimal? ExtractNumericValue(CellValue value)
+        => value switch
+        {
+            CellValue.Number  v => (decimal) v.Value,
+            CellValue.Decimal v => v.Value,
+            _ => null
+        };
 }
