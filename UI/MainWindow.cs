@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using MiniSheets.Core.Formula;
 using MiniSheets.Core.Model;
 using MiniSheets.State;
 
@@ -21,11 +22,15 @@ internal sealed class MainWindow : Window
         var toolBar = new ToolBar();
         var statusBar = new StatusBar();
 
-        var sheet = new Sheet();
-        var gridView = new GridView(sheet);
+        var workbook = new Workbook();
+        var sheet = new Sheet("Sheet1");
+        workbook.AddSheet(sheet);
+        var spreadsheetEngine = new SpreadsheetEngine(workbook);
+        var spreadsheetProviderService = new SpreadsheetProviderService(spreadsheetEngine);
+        var gridView = new GridView(sheet, spreadsheetProviderService);
         var uiHandler = new SpreadSheetUiEventHandler(gridView, formulaBar, menuBar, toolBar, statusBar);
 
-        var workbook = new Workbook();
+        
 
         DockPanel.SetDock(menuBar, Dock.Top);
         DockPanel.SetDock(toolBar, Dock.Top);

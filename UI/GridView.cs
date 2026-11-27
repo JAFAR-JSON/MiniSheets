@@ -19,6 +19,7 @@ internal class GridView : Border
 
     private readonly Sheet _sheet;
     private readonly ScrollViewer _scrollViewer;
+    private readonly SpreadsheetProviderService _spreadsheetProviderService;
 
     private readonly Dictionary<CellKey, Border> _visibleCells = new();
 
@@ -49,9 +50,10 @@ internal class GridView : Border
     public event EventHandler<(string cellName, string text)>? SelectedCellChanged;
     public event EventHandler<string>? StatusTextChanged;
 
-    public GridView(Sheet sheet)
+    public GridView(Sheet sheet, SpreadsheetProviderService spreadsheetProviderService)
     {
         _sheet = sheet;
+        _spreadsheetProviderService = spreadsheetProviderService;
         Padding = new Thickness(10);
 
         _grid = new Grid
@@ -232,7 +234,7 @@ internal class GridView : Border
             BorderThickness = new Thickness(0.6),
             Child = new TextBlock
             {
-                Text = _sheet.GetCell(new CellKey(rowIndex, columnIndex)).Raw ?? "",
+                Text = _spreadsheetProviderService.GetFormattedCellValue(0, new CellKey(rowIndex, columnIndex)),
                 FontSize = 14,
                 Foreground = new SolidColorBrush(Color.Parse("#374151")),
                 Padding = new Thickness(4, 0, 0, 0),
@@ -283,9 +285,11 @@ internal class GridView : Border
         if (_activeTextBox != null)
             return;
 
+        var cellKey = new CellKey(rowIndex, columnIndex);
+
         var textBox = new TextBox
         {
-            Text = (cell.Child as TextBlock)?.Text ?? "",
+            Text = _spreadsheetProviderService.GetRawCellValue(0, cellKey),//(cell.Child as TextBlock)?.Text ?? "",//_spreadsheetProviderService.GetRawCellValue(0, cellKey),
             FontSize = 14,
             Foreground = new SolidColorBrush(Color.Parse("#374151")),
             BorderThickness = new Thickness(0),
@@ -523,17 +527,19 @@ internal class GridView : Border
         if (_selectedCell == null)
             return;
 
-        _sheet.GetCell(new CellKey(
-            Grid.GetRow(_selectedCell) - 1,
-            Grid.GetColumn(_selectedCell))).Raw = text;
+        // Update the raw value of the selected cell
+        var cellKey = new CellKey(Grid.GetRow(_selectedCell) - 1, Grid.GetColumn(_selectedCell));
+        _spreadsheetProviderService.SetCellValue(0, cellKey, text);
+
+        Console.WriteLine($"DEBUG: UpdateSelectedCellContent({cellKey}, {text})");
 
         if (_selectedCell.Child is TextBlock textBlock)
         {
-            textBlock.Text = text;
+            textBlock.Text = _spreadsheetProviderService.GetFormattedCellValue(0, cellKey);
         }
         else if (_selectedCell.Child is TextBox textBox)
         {
-            textBox.Text = text;
+            textBox.Text = _spreadsheetProviderService.GetRawCellValue(0, cellKey);
         }
 
         NotifySelectedCellChanged(_selectedCell);
@@ -629,16 +635,17 @@ internal class GridView : Border
         StatusTextChanged?.Invoke(this, "Ready");
     }
 
-    private void NotifySelectedCellChanged(Border cell)
+   private void NotifySelectedCellChanged(Border cell)
     {
         var row = Grid.GetRow(cell);
         var column = Grid.GetColumn(cell);
-        var cellName = $"{GetColumnName(column - 1)}{row}";
-        var text = (cell.Child as TextBlock)?.Text
-                   ?? (cell.Child as TextBox)?.Text
-                   ?? string.Empty;
 
-        SelectedCellChanged?.Invoke(this, (cellName, text));
+        var cellKey = new CellKey(row - 1, column - 1);
+        var cellName = $"{GetColumnName(column - 1)}{row}";
+
+        var rawText = _spreadsheetProviderService.GetRawCellValue(0, cellKey);
+
+        SelectedCellChanged?.Invoke(this, (cellName, rawText));
     }
 
     public void MoveDownToNextCell()
@@ -863,13 +870,17 @@ internal class GridView : Border
 
         if (editingCell.Child is TextBox)
         {
-            _sheet.GetCell(new CellKey(
-                Grid.GetRow(editingCell) - 1,
-                Grid.GetColumn(editingCell))).Raw = textBox.Text;
+            var cellKey = new CellKey(Grid.GetRow(editingCell) - 1, Grid.GetColumn(editingCell));
+            _spreadsheetProviderService.SetCellValue(0, cellKey, textBox.Text);
+
+         
+
+            string formattedText =
+            _spreadsheetProviderService.GetFormattedCellValue(0, cellKey);
 
             var cellContent = new TextBlock
             {
-                Text = textBox.Text,
+                Text = formattedText,
                 FontSize = 14,
                 Foreground = new SolidColorBrush(Color.Parse("#374151")),
                 TextAlignment = TextAlignment.Left,
@@ -882,7 +893,6 @@ internal class GridView : Border
         }
         StatusTextChanged?.Invoke(this, "Ready");
 
-        CellClicked(editingCell);
         _activeTextBox = null;
         _editingCell = null;
     }
