@@ -14,7 +14,15 @@ public class ValueFormatter
     }
 
     public string Format(CellValue cellValue)
-    {
-        throw new UnreachableException();
-    }
+        => cellValue switch
+        {
+            CellValue.Empty   v => "",
+            CellValue.Number  v => v.Value.ToString(),
+            CellValue.Decimal v => v.Value.ToString(),
+            CellValue.Text    v => v.Value.ToString(),
+            CellValue.Bool    v => v.Value.ToString(),
+            CellValue.Date    v => v.Value.ToString(),
+            CellValue.Error   v => v.Value.ToString(),
+            _ => throw new UnreachableException()
+        };
 }
