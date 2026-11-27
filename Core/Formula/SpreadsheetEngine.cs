@@ -107,4 +107,19 @@ public class SpreadsheetEngine
 
         return _valueFormatter.Format(cell.Value);
     }
+
+    public string GetRawCellTExt(int sheetIndex, CellKey cellKey)
+    {
+        Guid sheetId = _workbook.SheetIds[sheetIndex];
+
+        return GetRawCellText(sheetId, cellKey);
+    }
+
+    public string GetRawCellText(Guid sheetId, CellKey cellKey)
+    {
+        Sheet sheet = _workbook.Sheets[sheetId];
+        Cell cell = sheet.GetCell(cellKey);
+
+        return cell.Raw;
+    }
 }
