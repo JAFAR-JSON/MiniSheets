@@ -76,9 +76,15 @@ public class SpreadsheetEngine
 
         cell.Raw = text;
         cell.Ast = _valueParser.Parse(cell);
+        // Console.WriteLine($"DEBUG: SetCellText({cell.Raw}, {cell.Ast})");
 
         // Evaluate every dependency in order.
         List<CellKey> cellKeys = _recalculator.RecalculateCell(sheetId, cellKey);
+
+        if (!cellKeys.Contains(cellKey))
+        {
+            cellKeys.Add(cellKey);
+        }
         // Console.WriteLine($"DEBUG: SetCellText({cellKeys.Count}, {cell.Raw}, {cell.Ast})");
         foreach (CellKey recalculatedCellKey in cellKeys)
         {
@@ -90,6 +96,7 @@ public class SpreadsheetEngine
             }
             // Console.WriteLine($"DEBUG: SetCellText.Ast({recalculatedCell.Ast})");
             recalculatedCell.Value = _evaluator.Evaluate(sheetId, recalculatedCell.Ast);
+            Console.WriteLine($"DEBUG: SetCellText.Value({recalculatedCell.Value})");
         }
 
         return cellKeys;
@@ -110,7 +117,7 @@ public class SpreadsheetEngine
         return _valueFormatter.Format(cell);
     }
 
-    public string GetRawCellTExt(int sheetIndex, CellKey cellKey)
+    public string GetRawCellText(int sheetIndex, CellKey cellKey)
     {
         Guid sheetId = _workbook.SheetIds[sheetIndex];
 

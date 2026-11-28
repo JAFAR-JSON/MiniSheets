@@ -36,6 +36,9 @@ public class ValueParser
     {
         string text = cell.Raw;
 
+        if (string.IsNullOrEmpty(text))
+            return new AstNode.Literal(new CellValue.Empty());
+
         if (text.Length >= 1 && text[0] == '\'')
         {
             return new AstNode.Literal(new CellValue.Text(text.Substring(1)));

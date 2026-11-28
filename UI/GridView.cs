@@ -19,6 +19,7 @@ internal class GridView : Border
 
     private readonly Sheet _sheet;
     private readonly ScrollViewer _scrollViewer;
+    private readonly SpreadsheetProviderService _spreadsheetProviderService;
 
     private readonly Dictionary<CellKey, Border> _visibleCells = new();
 
@@ -47,10 +48,12 @@ internal class GridView : Border
     private readonly List<Border> _highlightedCells = new();
 
     public event EventHandler<(string cellName, string text)>? SelectedCellChanged;
+    public event EventHandler<string>? StatusTextChanged;
 
-    public GridView(Sheet sheet)
+    public GridView(Sheet sheet, SpreadsheetProviderService spreadsheetProviderService)
     {
         _sheet = sheet;
+        _spreadsheetProviderService = spreadsheetProviderService;
         Padding = new Thickness(10);
 
         _grid = new Grid
@@ -231,7 +234,7 @@ internal class GridView : Border
             BorderThickness = new Thickness(0.6),
             Child = new TextBlock
             {
-                Text = _sheet.GetCell(new CellKey(rowIndex, columnIndex)).Raw ?? "",
+                Text = _spreadsheetProviderService.GetFormattedCellValue(0, new CellKey(rowIndex, columnIndex)),
                 FontSize = 14,
                 Foreground = new SolidColorBrush(Color.Parse("#374151")),
                 Padding = new Thickness(4, 0, 0, 0),
@@ -260,14 +263,8 @@ internal class GridView : Border
                 EditMode(cell, rowIndex, columnIndex);
                 e.Handled = true;
             }
-            else if (e.Key == Key.C && IsControlPressed(e))
+            else if (e.Source == cell && HandleCellClipboardCommand(cell, e))
             {
-                _ = CopyToClipboard(GetFormattedCellText(cell));
-                e.Handled = true;
-            }
-            else if (e.Key == Key.V && IsControlPressed(e))
-            {
-                _ = PasteFromClipboard();
                 e.Handled = true;
             }
         }, RoutingStrategies.Bubble, handledEventsToo: true);
@@ -286,11 +283,13 @@ internal class GridView : Border
     private void EditMode(Border cell, int rowIndex, int columnIndex)
     {
         if (_activeTextBox != null)
-                return;
+            return;
+
+        var cellKey = new CellKey(rowIndex, columnIndex);
 
         var textBox = new TextBox
         {
-            Text = (cell.Child as TextBlock)?.Text ?? "",
+            Text = _spreadsheetProviderService.GetRawCellValue(0, cellKey),//(cell.Child as TextBlock)?.Text ?? "",//_spreadsheetProviderService.GetRawCellValue(0, cellKey),
             FontSize = 14,
             Foreground = new SolidColorBrush(Color.Parse("#374151")),
             BorderThickness = new Thickness(0),
@@ -303,6 +302,7 @@ internal class GridView : Border
         _activeTextBox = textBox;
         _editingCell = cell;
         textBox.Focus();
+        StatusTextChanged?.Invoke(this, "Enter");
         textBox.CaretIndex = textBox.Text?.Length ?? 0;
         textBox.LostFocus += (_, _) => FinishEditing();
         textBox.TextChanged += (_, _) => NotifySelectedCellChanged(cell);
@@ -316,16 +316,6 @@ internal class GridView : Border
             {
                 textBox.Text = "";
                 FinishEditing();
-                keyEvent.Handled = true;
-            }
-            else if (keyEvent.Key == Key.C && IsControlPressed(keyEvent))
-            {
-                _ = CopyToClipboard(textBox.Text ?? string.Empty);
-                keyEvent.Handled = true;
-            }
-            else if (keyEvent.Key == Key.V && IsControlPressed(keyEvent))
-            {
-                _ = PasteFromClipboard();
                 keyEvent.Handled = true;
             }
         }, RoutingStrategies.Bubble, handledEventsToo: true);
@@ -534,21 +524,25 @@ internal class GridView : Border
     
     public void UpdateSelectedCellContent(string text)
     {
-        if (_selectedCell != null)
-        {
-            _sheet.GetCell(new CellKey(
-                Grid.GetRow(_selectedCell) - 1,
-                Grid.GetColumn(_selectedCell))).Raw = text;
+        if (_selectedCell == null)
+            return;
 
-            if (_selectedCell.Child is TextBlock textBlock)
-            {
-                textBlock.Text = text;
-            }
-            else if (_selectedCell.Child is TextBox textBox)
-            {
-                textBox.Text = text;
-            }
+        // Update the raw value of the selected cell
+        var cellKey = new CellKey(Grid.GetRow(_selectedCell) - 1, Grid.GetColumn(_selectedCell));
+        _spreadsheetProviderService.SetCellValue(0, cellKey, text);
+
+        Console.WriteLine($"DEBUG: UpdateSelectedCellContent({cellKey}, {text})");
+
+        if (_selectedCell.Child is TextBlock textBlock)
+        {
+            textBlock.Text = _spreadsheetProviderService.GetFormattedCellValue(0, cellKey);
         }
+        else if (_selectedCell.Child is TextBox textBox)
+        {
+            textBox.Text = _spreadsheetProviderService.GetRawCellValue(0, cellKey);
+        }
+
+        NotifySelectedCellChanged(_selectedCell);
     }
 
     private static bool IsNavigationKey(Key key)
@@ -556,9 +550,30 @@ internal class GridView : Border
         return key is Key.Enter or Key.Left or Key.Right or Key.Up or Key.Down or Key.Tab;
     }
 
-    private static bool IsControlPressed(KeyEventArgs keyEvent)
+    private static bool IsClipboardModifierPressed(KeyEventArgs keyEvent)
     {
-        return (keyEvent.KeyModifiers & KeyModifiers.Control) != 0;
+        return (keyEvent.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) != 0;
+    }
+
+    private bool HandleCellClipboardCommand(Border cell, KeyEventArgs keyEvent)
+    {
+        if (!IsClipboardModifierPressed(keyEvent))
+            return false;
+
+        switch (keyEvent.Key)
+        {
+            case Key.C:
+                _ = CopyToClipboard(GetFormattedCellText(cell));
+                return true;
+            case Key.V:
+                _ = PasteIntoSelectedCellAsync();
+                return true;
+            case Key.X:
+                _ = CutSelectedCellAsync();
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static string GetFormattedCellText(Border cell)
@@ -617,18 +632,20 @@ internal class GridView : Border
         cellBorder.BorderBrush = new SolidColorBrush(Color.Parse("#252627"));
         cellBorder.BorderThickness = new Thickness(2);
         NotifySelectedCellChanged(cellBorder);
+        StatusTextChanged?.Invoke(this, "Ready");
     }
 
-    private void NotifySelectedCellChanged(Border cell)
+   private void NotifySelectedCellChanged(Border cell)
     {
         var row = Grid.GetRow(cell);
         var column = Grid.GetColumn(cell);
-        var cellName = $"{GetColumnName(column - 1)}{row}";
-        var text = (cell.Child as TextBlock)?.Text
-                   ?? (cell.Child as TextBox)?.Text
-                   ?? string.Empty;
 
-        SelectedCellChanged?.Invoke(this, (cellName, text));
+        var cellKey = new CellKey(row - 1, column - 1);
+        var cellName = $"{GetColumnName(column - 1)}{row}";
+
+        var rawText = _spreadsheetProviderService.GetRawCellValue(0, cellKey);
+
+        SelectedCellChanged?.Invoke(this, (cellName, rawText));
     }
 
     public void MoveDownToNextCell()
@@ -642,14 +659,36 @@ internal class GridView : Border
         EnterOrArrowPressedOnCell(currentRow, currentColumn, Key.Enter, false);
     }
 
+    public async Task CopySelectedCellToClipboardAsync()
+    {
+        if (_selectedCell == null)
+            return;
+
+        await CopyToClipboard(GetFormattedCellText(_selectedCell));
+    }
+
     private async Task CopyToClipboard(string text)
     {
         await Clipboard.CopyAsync(text);
     }
 
-    private async Task PasteFromClipboard()
+    public async Task PasteIntoSelectedCellAsync()
     {
-        UpdateSelectedCellContent(await Clipboard.PasteAsync());
+        if (_selectedCell == null)
+            return;
+
+        var existingText = GetFormattedCellText(_selectedCell);
+        var pastedText = await Clipboard.PasteAsync();
+        UpdateSelectedCellContent(existingText + pastedText);
+    }
+
+    public async Task CutSelectedCellAsync()
+    {
+        if (_selectedCell == null)
+            return;
+
+        await CopyToClipboard(GetFormattedCellText(_selectedCell));
+        UpdateSelectedCellContent(string.Empty);
     }
 
     private void EnterOrArrowPressedOnCell(
@@ -831,13 +870,17 @@ internal class GridView : Border
 
         if (editingCell.Child is TextBox)
         {
-            _sheet.GetCell(new CellKey(
-                Grid.GetRow(editingCell) - 1,
-                Grid.GetColumn(editingCell))).Raw = textBox.Text;
+            var cellKey = new CellKey(Grid.GetRow(editingCell) - 1, Grid.GetColumn(editingCell));
+            _spreadsheetProviderService.SetCellValue(0, cellKey, textBox.Text);
+
+         
+
+            string formattedText =
+            _spreadsheetProviderService.GetFormattedCellValue(0, cellKey);
 
             var cellContent = new TextBlock
             {
-                Text = textBox.Text,
+                Text = formattedText,
                 FontSize = 14,
                 Foreground = new SolidColorBrush(Color.Parse("#374151")),
                 TextAlignment = TextAlignment.Left,
@@ -848,8 +891,8 @@ internal class GridView : Border
 
             editingCell.Child = cellContent;
         }
+        StatusTextChanged?.Invoke(this, "Ready");
 
-        CellClicked(editingCell);
         _activeTextBox = null;
         _editingCell = null;
     }

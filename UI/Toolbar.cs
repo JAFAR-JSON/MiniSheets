@@ -9,6 +9,10 @@ namespace MiniSheets.UI;
 
 internal sealed class ToolBar : Border
 {
+    public event EventHandler? CopyButtonClicked;
+    public event EventHandler? PasteButtonClicked;
+    public event EventHandler? CutButtonClicked;
+
     public ToolBar()
     {
         Padding = new Thickness(8, 8, 10, 8);
@@ -24,16 +28,6 @@ internal sealed class ToolBar : Border
                 CreateToolButton("New"),
                 CreateToolButton("Open"),
                 CreateToolButton("Save"),
-                new Separator
-                {
-                    Height = 30,
-                    Width = 1,
-                    Background = new SolidColorBrush(Color.Parse("#aca3a370")),
-                    Margin = new Thickness(0),
-                    Padding = new Thickness(2, 4)
-                },
-                CreateToolButton("Undo"),
-                CreateToolButton("Redo"),
                 new Separator
                 {
                     Height = 30,
@@ -90,7 +84,7 @@ internal sealed class ToolBar : Border
 
     private Button CreateToolButton(string title)
     {
-        return new Button
+        var button = new Button
         {
             Height = 30,
             Width = 54,
@@ -103,5 +97,20 @@ internal sealed class ToolBar : Border
             HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center
         };
+
+        if (title == "Copy")
+        {
+            button.Click += (_, _) => CopyButtonClicked?.Invoke(this, EventArgs.Empty);
+        }
+        else if (title == "Paste")
+        {
+            button.Click += (_, _) => PasteButtonClicked?.Invoke(this, EventArgs.Empty);
+        }
+        else if (title == "Cut")
+        {
+            button.Click += (_, _) => CutButtonClicked?.Invoke(this, EventArgs.Empty);
+        }
+
+        return button;
     }
 }

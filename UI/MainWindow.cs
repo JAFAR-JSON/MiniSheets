@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
+using MiniSheets.Core.Formula;
 using MiniSheets.Core.Model;
 using MiniSheets.State;
 
@@ -18,14 +19,21 @@ internal sealed class MainWindow : Window
 
         var menuBar = new MenuBar();
         var formulaBar = new FormulaBar();
-
-        var sheet = new Sheet();
-        var gridView = new GridView(sheet);
-        var uiHandler = new SpreadSheetUiEventHandler(gridView, formulaBar, menuBar);
+        var toolBar = new ToolBar();
+        var statusBar = new StatusBar();
 
         var workbook = new Workbook();
+        var sheet = new Sheet("Sheet1");
+        workbook.AddSheet(sheet);
+        var spreadsheetEngine = new SpreadsheetEngine(workbook);
+        var spreadsheetProviderService = new SpreadsheetProviderService(spreadsheetEngine);
+        var gridView = new GridView(sheet, spreadsheetProviderService);
+        var uiHandler = new SpreadSheetUiEventHandler(gridView, formulaBar, menuBar, toolBar, statusBar);
+
+        
 
         DockPanel.SetDock(menuBar, Dock.Top);
+        DockPanel.SetDock(toolBar, Dock.Top);
         DockPanel.SetDock(formulaBar, Dock.Top);
 
         var footer = new DockPanel
@@ -52,10 +60,7 @@ internal sealed class MainWindow : Window
             Margin = new Thickness(0),
             Padding = new Thickness(0)
         });
-        footer.Children.Add(new StatusBar
-        {
-            [DockPanel.DockProperty] = Dock.Bottom
-        });
+        footer.Children.Add(statusBar);
 
         Content = new DockPanel
         {
@@ -71,10 +76,7 @@ internal sealed class MainWindow : Window
                     Margin = new Thickness(0),
                     Padding = new Thickness(0)
                 },
-                new ToolBar()
-                {
-                    [DockPanel.DockProperty] = Dock.Top
-                },
+                toolBar,
                 new Separator
                 {
                     [DockPanel.DockProperty] = Dock.Top,
