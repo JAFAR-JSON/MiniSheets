@@ -28,6 +28,8 @@ public class ValueParser
 
     public AstNode ParseText(CellFormat format, string text)
     {
+        if (string.IsNullOrEmpty(text))
+            return new AstNode.Literal(new CellValue.Empty());
         if (text.Length >= 1 && text[0] == '\'')
         {
             return new AstNode.Literal(new CellValue.Text(text.Substring(1)));
@@ -41,7 +43,6 @@ public class ValueParser
 
             return _parser.ParseText(text.Substring(1));
         }
-
         // switch (format)
         // {
         //     case CellFormat.General:

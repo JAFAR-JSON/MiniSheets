@@ -7,23 +7,39 @@ internal class SpreadSheetUiEventHandler
 {
     private readonly GridView _gridView;
     private readonly FormulaBar _formulaBar;
+    private readonly ToolBar _toolBar;
+    private readonly MenuBar _menuBar;
+    private readonly StatusBar _statusBar;
 
-    internal SpreadSheetUiEventHandler(GridView gridView, FormulaBar formulaBar, MenuBar menuBar)
+    internal SpreadSheetUiEventHandler(GridView gridView, FormulaBar formulaBar, MenuBar menuBar, ToolBar toolBar, StatusBar statusBar)
     {
         _gridView = gridView;
         _formulaBar = formulaBar;
+        _toolBar = toolBar;
+        _menuBar = menuBar;
+        _statusBar = statusBar;
 
         // Subscribe to events
-        // When the formula bar content changes, update the selected cell content in the grid view
         _formulaBar.ChangeGridCellContent += UpdateSelectedCellContent;
+        _formulaBar.EnterPressed += MoveDownToNextCell;
+        _formulaBar.GoToCell += SendGridToCell;
+        _formulaBar.StatusTextChanged += ChangeStatusBarText;
         // When the selected cell changes, update both formula-bar fields
         _gridView.SelectedCellChanged += UpdateFormulaBar;
+        _gridView.StatusTextChanged += ChangeStatusBarText;
         // When the "Borders" menu item is clicked, apply a border to the selected cell in the grid view
-        menuBar.BordersClicked += ApplyBorderToSelectedCell;
+        _menuBar.BordersClicked += ApplyBorderToSelectedCell;
+        _menuBar.CopyButtonClicked += CopySelectedCellContent;
+        _menuBar.PasteButtonClicked += PasteIntoSelectedCell;
+        _menuBar.CutButtonClicked += CutSelectedCellContent;
+        _menuBar.ExportCsvClicked += ExportCsvClicked;
+        _menuBar.ImportCsvClicked += ImportCsvClicked;
 
-        _formulaBar.EnterPressed += MoveDownToNextCell;
+       
 
-        _formulaBar.GoToCell += SendGridToCell;
+        _toolBar.CopyButtonClicked += CopySelectedCellContent;
+        _toolBar.PasteButtonClicked += PasteIntoSelectedCell;
+        _toolBar.CutButtonClicked += CutSelectedCellContent;
     }
 
     private void UpdateSelectedCellContent(object? sender, string text)
@@ -51,4 +67,35 @@ internal class SpreadSheetUiEventHandler
         _gridView.GoToCell(e.columnName, e.rowName);
     }
 
+    private void CopySelectedCellContent(object? sender, EventArgs e)
+    {
+        _ = _gridView.CopySelectedCellToClipboardAsync();
+    }
+
+    private void PasteIntoSelectedCell(object? sender, EventArgs e)
+    {
+        _ = _gridView.PasteIntoSelectedCellAsync();
+    }
+
+    private void CutSelectedCellContent(object? sender, EventArgs e)
+    {
+        _ = _gridView.CutSelectedCellAsync();
+    }
+
+    private void ChangeStatusBarText(object? sender, string text)
+    {
+        _statusBar.SetStatusText(text);
+    }
+
+    private void ExportCsvClicked(object? sender, EventArgs e)
+    {
+        var exportCSVScreen = new ExportCSVScreen();
+        exportCSVScreen.Show();
+    }
+
+    private void ImportCsvClicked(object? sender, EventArgs e)
+    {
+        var importCSVScreen = new ImportCSVScreen();
+        importCSVScreen.Show();
+    }
 }

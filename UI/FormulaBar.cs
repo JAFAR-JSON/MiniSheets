@@ -19,6 +19,7 @@ public class FormulaBar : Border
     public event EventHandler<string>? ChangeGridCellContent;
     public event EventHandler? EnterPressed;
     public event EventHandler<(string firstChar, string restOfCellName)>? GoToCell;
+    public event EventHandler<string>? StatusTextChanged;
 
     public FormulaBar()
     {
@@ -30,11 +31,6 @@ public class FormulaBar : Border
 
         _nameBox.AddHandler(KeyDownEvent, (_, e) =>
         {
-            if (HandleClipboardShortcut(_nameBox, e))
-            {
-                return;
-            }
-
             if (e.Key == Key.Enter)
             {
                 var cellName = (_nameBox.Text ?? string.Empty).Trim();
@@ -56,6 +52,12 @@ public class FormulaBar : Border
             }
         }, RoutingStrategies.Bubble, handledEventsToo: true);
 
+
+
+        _formulaTextBox.GotFocus += (_, _) =>
+        {
+            StatusTextChanged?.Invoke(this, "Edit");
+        };
         _formulaTextBox.TextChanged += (_, _) =>
         {
             if (_updatingFromSelection)
@@ -71,11 +73,6 @@ public class FormulaBar : Border
 
         _formulaTextBox.AddHandler(KeyDownEvent, (_, e) =>
         {
-            if (HandleClipboardShortcut(_formulaTextBox, e))
-            {
-                return;
-            }
-
             if (e.Key == Key.Enter)
             {
                 EnterPressed?.Invoke(this, EventArgs.Empty);
@@ -98,33 +95,6 @@ public class FormulaBar : Border
                 _formulaTextBox
             }
         };
-    }
-
-    private static bool HandleClipboardShortcut(TextBox textBox, KeyEventArgs keyEvent)
-    {
-        if ((keyEvent.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) == 0)
-            return false;
-
-        if (keyEvent.Key == Key.C)
-        {
-            _ = Clipboard.CopyAsync(textBox.Text ?? string.Empty);
-            keyEvent.Handled = true;
-            return true;
-        }
-
-        if (keyEvent.Key == Key.V)
-        {
-            _ = PasteTextAsync(textBox);
-            keyEvent.Handled = true;
-            return true;
-        }
-
-        return false;
-    }
-
-    private static async Task PasteTextAsync(TextBox textBox)
-    {
-        textBox.Text = await Clipboard.PasteAsync();
     }
 
     private TextBox CreateNameBox()
