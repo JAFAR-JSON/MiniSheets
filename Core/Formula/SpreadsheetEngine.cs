@@ -13,6 +13,7 @@ public class SpreadsheetEngine
     private readonly StyleManager _styleManager;
     private readonly Evaluator _evaluator;
     private readonly Parser _parser;
+    private readonly LocaleSettings _localeSettings;
     private readonly ValueParser _valueParser;
     private readonly ValueFormatter _valueFormatter;
 
@@ -23,7 +24,8 @@ public class SpreadsheetEngine
         _styleManager = new StyleManager(_workbook);
         _evaluator = new Evaluator(_workbook, _styleManager);
         _parser = new Parser();
-        _valueParser = new ValueParser(_parser);
+        _localeSettings = new LocaleSettings(LocaleType.EN_US);
+        _valueParser = new ValueParser(_parser, _localeSettings, _styleManager);
         _valueFormatter = new ValueFormatter(_styleManager);
 
         // Calculate paths for all of that.
@@ -36,7 +38,7 @@ public class SpreadsheetEngine
             foreach (var cellKpv in sheet.Cells)
             {
                 Cell cell = cellKpv.Value;
-                cell.Ast = _valueParser.ParseText(cell.Raw);
+                cell.Ast = _valueParser.Parse(cell);
             }
 
             // Evaluate every dependency in order.
@@ -73,7 +75,7 @@ public class SpreadsheetEngine
         Cell  cell  = sheet.GetCell(cellKey);
 
         cell.Raw = text;
-        cell.Ast = _valueParser.ParseText(cell.Raw);
+        cell.Ast = _valueParser.Parse(cell);
 
         // Evaluate every dependency in order.
         List<CellKey> cellKeys = _recalculator.RecalculateCell(sheetId, cellKey);

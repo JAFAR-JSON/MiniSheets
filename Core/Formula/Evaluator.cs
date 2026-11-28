@@ -157,7 +157,9 @@ public class Evaluator
             CellValue.Date    v
                 => new CellValue.Error("#VALUE!"),
 
-            CellValue.Error   v => v
+            CellValue.Error   v => v,
+
+            _ => throw new UnreachableException()
         };
 
     private CellValue AttemptConvertByArithmetic(CellValue body)
@@ -182,7 +184,9 @@ public class Evaluator
                 => v,
 
             CellValue.Error v
-                => v
+                => v,
+
+            _ => throw new UnreachableException()
         };
 
     private CellValue AttemptConvertEmptyByArithmetic(CellValue body)
