@@ -26,7 +26,7 @@ public class SpreadsheetEngine
         _parser = new Parser();
         _localeSettings = new LocaleSettings(LocaleType.EN_US);
         _valueParser = new ValueParser(_parser, _localeSettings, _styleManager);
-        _valueFormatter = new ValueFormatter(_styleManager);
+        _valueFormatter = new ValueFormatter(_styleManager, _localeSettings);
 
         // Calculate paths for all of that.
         foreach (var kpv in _workbook.Sheets)
@@ -107,7 +107,7 @@ public class SpreadsheetEngine
         Sheet sheet = _workbook.Sheets[sheetId];
         Cell cell = sheet.GetCell(cellKey);
 
-        return _valueFormatter.Format(cell.Value);
+        return _valueFormatter.Format(cell);
     }
 
     public string GetRawCellTExt(int sheetIndex, CellKey cellKey)

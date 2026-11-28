@@ -1,6 +1,6 @@
 namespace MiniSheets.Core.Model;
 
-public class CellStyle
+public record CellStyle
 {
     public CellFormat Format { get; set; } = CellFormat.General;
     public int Decimals { get; set; } = 2;
