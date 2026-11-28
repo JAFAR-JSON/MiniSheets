@@ -34,7 +34,7 @@ public class Recalculator
                 throw new UnreachableException();
             }
 
-            List<CellKey> dependencies = GetDependents(cell.Ast);
+            List<CellKey> dependencies = GetDependencies(cell.Ast);
             dependencyGraph.Add(cellKey, dependencies);
         }
 
@@ -58,27 +58,27 @@ public class Recalculator
         }
 
         DependencyGraph<CellKey> dependencyGraph = SheetDependencies[sheetId];
-        List<CellKey> dependents = GetDependents(cell.Ast);
+        List<CellKey> dependencies = GetDependencies(cell.Ast);
         // Console.WriteLine($"DEBUG: RecalculateCell({dependencies.Count})");
-        dependencyGraph.RemoveAllDependents(cellKey);
-        dependencyGraph.Add(cellKey, dependents);
+        dependencyGraph.RemoveAllDependencies(cellKey);
+        dependencyGraph.Add(cellKey, dependencies);
 
         var first = dependencyGraph.Sort().Item1;
         // first.Add(cellKey);
         return first;
     }
 
-    private List<CellKey> GetDependents(AstNode ast)
+    private List<CellKey> GetDependencies(AstNode ast)
     {
         // Console.WriteLine($"DEBUG: GetDependencies(ast: {ast})");
         // TODO: Maybe recursion isn't the best thing way to do things here (in terms of performance).
         switch (ast)
         {
             case AstNode.Unary   a:
-                return GetDependents(a.Body);
+                return GetDependencies(a.Body);
 
             case AstNode.Binary  a:
-                return GetDependents(a.Left).Concat(GetDependents(a.Right)).ToList();
+                return GetDependencies(a.Left).Concat(GetDependencies(a.Right)).ToList();
 
             case AstNode.Call    a:
             {
@@ -86,7 +86,7 @@ public class Recalculator
                 // Console.WriteLine($"DEBUG: GetDependencies(arguments: {a.Arguments.Length})");
                 foreach (var argument in a.Arguments)
                 {
-                    cellKeys.AddRange(GetDependents(argument));
+                    cellKeys.AddRange(GetDependencies(argument));
                     // Console.WriteLine($"DEBUG: GetDependencies(current_cells: {cellKeys.Count})");
                 }
                 // Console.WriteLine($"DEBUG: GetDependencies(total_cells: {cellKeys.Count})");
