@@ -81,7 +81,15 @@ public class SpreadsheetEngine
         // Console.WriteLine($"DEBUG: SetCellText({cell.Raw}, {cell.Ast})");
 
         // Evaluate every dependency in order.
-        List<CellKey> cellKeys = _recalculator.RecalculateCell(sheetId, cellKey);
+        RecalculationInfo recalculationInfo = _recalculator.RecalculateCell(sheetId, cellKey);
+        List<CellKey> cellKeys = recalculationInfo.SortedEvaluationOrder;
+
+        Console.WriteLine($"DEBUG: SetCellText.Circular(dependencyCount: {recalculationInfo.Circular.Count})");
+        foreach (var c in recalculationInfo.Circular)
+        {
+            cell.Value = new CellValue.Error("#CIRC!");
+            Console.WriteLine($"DEBUG: SetCellText.CircularKey(column: {c.Column}, row: {c.Row})");
+        }
 
         Console.WriteLine($"DEBUG: SetCellText.BeforeLoop(dependencyCount: {cellKeys.Count}, raw: {cell.Raw}, ast: {cell.Ast})");
         foreach (var c in cellKeys)

@@ -44,7 +44,7 @@ public class Recalculator
     }
 
     // TODO: This is quite inefficient, fix later.
-    public List<CellKey> RecalculateCell(Guid sheetId, CellKey cellKey)
+    public RecalculationInfo RecalculateCell(Guid sheetId, CellKey cellKey)
     {
         if (!SheetDependencies.ContainsKey(sheetId))
         {
@@ -63,9 +63,8 @@ public class Recalculator
         dependencyGraph.RemoveAllDependencies(cellKey);
         dependencyGraph.Add(cellKey, dependencies);
 
-        var first = dependencyGraph.Sort().Item1;
-        // first.Add(cellKey);
-        return first;
+        var sortedGraph = dependencyGraph.Sort();
+        return new RecalculationInfo(sortedGraph.Item1, sortedGraph.Item2);
     }
 
     private List<CellKey> GetDependencies(AstNode ast)
