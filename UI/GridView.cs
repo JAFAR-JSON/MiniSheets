@@ -10,6 +10,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using MiniSheets.Core.Model;
 using MiniSheets.State;
+using MiniSheets.Shared;
 
 namespace MiniSheets.UI;
 
@@ -528,7 +529,7 @@ internal class GridView : Border
             return;
 
         // Update the raw value of the selected cell
-        var cellKey = new CellKey(Grid.GetRow(_selectedCell) - 1, Grid.GetColumn(_selectedCell));
+        var cellKey = new CellKey(Grid.GetColumn(_selectedCell) - 1, Grid.GetRow(_selectedCell));
         _spreadsheetProviderService.SetCellValue(0, cellKey, text);
 
         Console.WriteLine($"DEBUG: UpdateSelectedCellContent({cellKey}, {text})");
@@ -870,7 +871,7 @@ internal class GridView : Border
 
         if (editingCell.Child is TextBox)
         {
-            var cellKey = new CellKey(Grid.GetRow(editingCell) - 1, Grid.GetColumn(editingCell));
+            var cellKey = new CellKey(Grid.GetColumn(editingCell) - 1, Grid.GetRow(editingCell));
             _spreadsheetProviderService.SetCellValue(0, cellKey, textBox.Text);
 
          
@@ -899,23 +900,24 @@ internal class GridView : Border
 
 
     private string GetColumnName(int index)
-    {
-        string result = "";
-
-        if (index == -1)
-        {
-            return "";
-        }
-
-        while (index >= 0)
-        {
-            // Convert number into a letter
-            result = (char)('A' + index % 26) + result;
-            index = index / 26 - 1;
-        }
-
-        return result;
-    }
+        => ColumnEncodingConverter.Encode(index) ?? "";
+    // {
+    //     string result = "";
+    //
+    //     if (index == -1)
+    //     {
+    //         return "";
+    //     }
+    //
+    //     while (index >= 0)
+    //     {
+    //         // Convert number into a letter
+    //         result = (char)('A' + index % 26) + result;
+    //         index = index / 26 - 1;
+    //     }
+    //
+    //     return result;
+    // }
 
     public void GoToCell(string columnName, string rowName)
     {
@@ -929,17 +931,18 @@ internal class GridView : Border
     }
 
     private int ColumnNameToIndex(string columnName)
-    {
-        int result = 0;
-        foreach (char c in columnName)
-        {
-            if (char.IsLetter(c))
-            {
-                result = result * 26 + (char.ToUpper(c) - 'A' + 1);
-            }
-        }
-        return result;
-    }
+        => ColumnEncodingConverter.Decode(columnName) ?? 0;
+    // {
+    //     int result = 0;
+    //     foreach (char c in columnName)
+    //     {
+    //         if (char.IsLetter(c))
+    //         {
+    //             result = result * 26 + (char.ToUpper(c) - 'A' + 1);
+    //         }
+    //     }
+    //     return result;
+    // }
 
     private Style CreateTextBoxFocusStyle()
     {

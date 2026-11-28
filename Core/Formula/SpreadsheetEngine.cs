@@ -71,6 +71,8 @@ public class SpreadsheetEngine
     /// </summary>
     public List<CellKey> SetCellText(Guid sheetId, CellKey cellKey, string text)
     {
+        Console.WriteLine($"DEBUG: SetCellText(column: {cellKey.Column}, row: {cellKey.Row})");
+        Console.WriteLine($"DEBUG: SetCellText(text: \"{text}\")");
         Sheet sheet = _workbook.Sheets[sheetId];
         Cell  cell  = sheet.GetCell(cellKey);
 
@@ -81,20 +83,23 @@ public class SpreadsheetEngine
         // Evaluate every dependency in order.
         List<CellKey> cellKeys = _recalculator.RecalculateCell(sheetId, cellKey);
 
-        if (!cellKeys.Contains(cellKey))
+        Console.WriteLine($"DEBUG: SetCellText.BeforeLoop(dependencyCount: {cellKeys.Count}, raw: {cell.Raw}, ast: {cell.Ast})");
+        foreach (var c in cellKeys)
         {
-            cellKeys.Add(cellKey);
+            Console.WriteLine($"DEBUG: SetCellText.KeyInCellKeys(column: {c.Column}, row: {c.Row})");
         }
-        // Console.WriteLine($"DEBUG: SetCellText({cellKeys.Count}, {cell.Raw}, {cell.Ast})");
+
         foreach (CellKey recalculatedCellKey in cellKeys)
         {
-            // Console.WriteLine($"DEBUG: SetCellText.Key(column: {recalculatedCellKey.Column}, row: {recalculatedCellKey.Row});");
+            Console.WriteLine($"DEBUG: SetCellText.RecalculatedKey(column: {recalculatedCellKey.Column}, row: {recalculatedCellKey.Row});");
             Cell recalculatedCell = sheet.GetCell(recalculatedCellKey);
             if (recalculatedCell.Ast is null)
             {
-                throw new UnreachableException();
+                recalculatedCell.Raw = "";
+                recalculatedCell.Ast = _valueParser.Parse(cell);
+                // throw new UnreachableException();
             }
-            // Console.WriteLine($"DEBUG: SetCellText.Ast({recalculatedCell.Ast})");
+            Console.WriteLine($"DEBUG: SetCellText.Ast({recalculatedCell.Ast})");
             recalculatedCell.Value = _evaluator.Evaluate(sheetId, recalculatedCell.Ast);
             Console.WriteLine($"DEBUG: SetCellText.Value({recalculatedCell.Value})");
         }

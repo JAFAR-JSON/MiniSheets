@@ -39,12 +39,13 @@ public class Evaluator
             // AstNode.Primary.Function e => EvaluateFunction(e),
             AstNode.Call e => EvaluateFunction(sheetId, e),
             AstNode.Primary.Text   e => new CellValue.Text(e.Value),
+            AstNode.Primary.Date   e => new CellValue.Date(e.Value),
             AstNode.Primary.Number e => EvaluateNumber(e.Value),
             AstNode.Primary.Error  e => new CellValue.Error(e.Value),
             AstNode.Primary.Cell   e => GetCellValue(sheetId, e.Column, e.Row),
             AstNode.Primary.Range  e => new CellValue.Error("#ERROR!"),
 
-            _ => throw new UnreachableException()
+            _ => throw new UnreachableException(expr.ToString())
         };
     
     private CellValue GetCellValue(Guid sheetId, int column, int row)
@@ -132,7 +133,7 @@ public class Evaluator
             UnaryAstNodeOperator.Percentify
                 => AttemptConvertByArithmetic(body),
 
-            _ => throw new UnreachableException()
+            _ => throw new UnreachableException(astUnary.ToString())
         };
     }
 
@@ -159,7 +160,7 @@ public class Evaluator
 
             CellValue.Error   v => v,
 
-            _ => throw new UnreachableException()
+            _ => throw new UnreachableException(body.ToString())
         };
 
     private CellValue AttemptConvertByArithmetic(CellValue body)
@@ -186,7 +187,7 @@ public class Evaluator
             CellValue.Error v
                 => v,
 
-            _ => throw new UnreachableException()
+            _ => throw new UnreachableException(body.ToString())
         };
 
     private CellValue AttemptConvertEmptyByArithmetic(CellValue body)
@@ -274,7 +275,7 @@ public class Evaluator
                     (left, right , (l, r) => Math.Pow(l, r) , (l, r) => (decimal) Math.Pow((double) l, (double) r));
         }
 
-        throw new UnreachableException();
+        throw new UnreachableException(binaryOperator.ToString());
     }
 
     private CellValue EvaluateBinaryArithmeticWithDateHandling
@@ -812,7 +813,7 @@ public class Evaluator
                 AstNode? node = _workbook.GetCell(sheetId, new CellKey(i, j)).Ast;
                 if (node is null)
                 {
-                    throw new UnreachableException();
+                    throw new UnreachableException("node is null");
                 }
 
                 yield return Evaluate(sheetId, node);

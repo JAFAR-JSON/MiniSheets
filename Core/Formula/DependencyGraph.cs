@@ -55,7 +55,7 @@ public class DependencyGraph<ValueType> where ValueType : notnull
     public bool NodeExists(ValueType obj)
         => _map.ContainsKey(obj);
 
-    public int? GetDependenciesCount(ValueType obj)
+    public int? GetDependentCount(ValueType obj)
     {
         if (_map.ContainsKey(obj))
         {
@@ -65,7 +65,7 @@ public class DependencyGraph<ValueType> where ValueType : notnull
         return null;
     }
 
-    public ValueType[] GetDependencies(ValueType obj)
+    public ValueType[] GetDependents(ValueType obj)
     {
         if (_map.ContainsKey(obj))
         {
@@ -75,7 +75,7 @@ public class DependencyGraph<ValueType> where ValueType : notnull
         return new ValueType[0];
     }
 
-    public void RemoveDependency(ValueType obj, ValueType dependency)
+    public void RemoveDependent(ValueType obj, ValueType dependency)
     {
         if (_map.ContainsKey(obj) && _map[obj].Dependents.Contains(dependency))
         {
@@ -83,11 +83,11 @@ public class DependencyGraph<ValueType> where ValueType : notnull
         }
     }
 
-    public void RemoveAllDependencies(ValueType obj)
+    public void RemoveAllDependents(ValueType obj)
     {
-        foreach (var dependency in GetDependencies(obj))
+        foreach (var dependency in GetDependents(obj))
         {
-            RemoveDependency(obj, dependency);
+            RemoveDependent(obj, dependency);
         }
     }
 
