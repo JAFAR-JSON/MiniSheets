@@ -13,6 +13,7 @@ public class SpreadsheetEngine
     private readonly StyleManager _styleManager;
     private readonly Evaluator _evaluator;
     private readonly Parser _parser;
+    private readonly LocaleSettings _localeSettings;
     private readonly ValueParser _valueParser;
     private readonly ValueFormatter _valueFormatter;
 
@@ -23,8 +24,9 @@ public class SpreadsheetEngine
         _styleManager = new StyleManager(_workbook);
         _evaluator = new Evaluator(_workbook, _styleManager);
         _parser = new Parser();
-        _valueParser = new ValueParser(_parser);
-        _valueFormatter = new ValueFormatter(_styleManager);
+        _localeSettings = new LocaleSettings(LocaleType.EN_US);
+        _valueParser = new ValueParser(_parser, _localeSettings, _styleManager);
+        _valueFormatter = new ValueFormatter(_styleManager, _localeSettings);
 
         // Calculate paths for all of that.
         foreach (var kpv in _workbook.Sheets)
@@ -36,7 +38,7 @@ public class SpreadsheetEngine
             foreach (var cellKpv in sheet.Cells)
             {
                 Cell cell = cellKpv.Value;
-                cell.Ast = _valueParser.ParseText(cell.Raw);
+                cell.Ast = _valueParser.Parse(cell);
             }
 
             // Evaluate every dependency in order.
@@ -69,30 +71,35 @@ public class SpreadsheetEngine
     /// </summary>
     public List<CellKey> SetCellText(Guid sheetId, CellKey cellKey, string text)
     {
+        Console.WriteLine($"DEBUG: SetCellText(column: {cellKey.Column}, row: {cellKey.Row})");
+        Console.WriteLine($"DEBUG: SetCellText(text: \"{text}\")");
         Sheet sheet = _workbook.Sheets[sheetId];
         Cell  cell  = sheet.GetCell(cellKey);
 
         cell.Raw = text;
-        cell.Ast = _valueParser.ParseText(cell.Raw);
-        Console.WriteLine($"DEBUG: SetCellText({cell.Raw}, {cell.Ast})");
+        cell.Ast = _valueParser.Parse(cell);
+        // Console.WriteLine($"DEBUG: SetCellText({cell.Raw}, {cell.Ast})");
 
         // Evaluate every dependency in order.
         List<CellKey> cellKeys = _recalculator.RecalculateCell(sheetId, cellKey);
 
-        if (!cellKeys.Contains(cellKey))
+        Console.WriteLine($"DEBUG: SetCellText.BeforeLoop(dependencyCount: {cellKeys.Count}, raw: {cell.Raw}, ast: {cell.Ast})");
+        foreach (var c in cellKeys)
         {
-            cellKeys.Add(cellKey);
+            Console.WriteLine($"DEBUG: SetCellText.KeyInCellKeys(column: {c.Column}, row: {c.Row})");
         }
-        // Console.WriteLine($"DEBUG: SetCellText({cellKeys.Count}, {cell.Raw}, {cell.Ast})");
+
         foreach (CellKey recalculatedCellKey in cellKeys)
         {
-            // Console.WriteLine($"DEBUG: SetCellText.Key(column: {recalculatedCellKey.Column}, row: {recalculatedCellKey.Row});");
+            Console.WriteLine($"DEBUG: SetCellText.RecalculatedKey(column: {recalculatedCellKey.Column}, row: {recalculatedCellKey.Row});");
             Cell recalculatedCell = sheet.GetCell(recalculatedCellKey);
             if (recalculatedCell.Ast is null)
             {
-                throw new UnreachableException();
+                recalculatedCell.Raw = "";
+                recalculatedCell.Ast = _valueParser.Parse(cell);
+                // throw new UnreachableException();
             }
-            // Console.WriteLine($"DEBUG: SetCellText.Ast({recalculatedCell.Ast})");
+            Console.WriteLine($"DEBUG: SetCellText.Ast({recalculatedCell.Ast})");
             recalculatedCell.Value = _evaluator.Evaluate(sheetId, recalculatedCell.Ast);
             Console.WriteLine($"DEBUG: SetCellText.Value({recalculatedCell.Value})");
         }
@@ -112,7 +119,7 @@ public class SpreadsheetEngine
         Sheet sheet = _workbook.Sheets[sheetId];
         Cell cell = sheet.GetCell(cellKey);
 
-        return _valueFormatter.Format(cell.Value);
+        return _valueFormatter.Format(cell);
     }
 
     public string GetRawCellText(int sheetIndex, CellKey cellKey)
